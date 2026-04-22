@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dev-shelf 任务观察台</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20260421d" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="panel panel-sidebar">
+        <div class="brand-block">
+          <p class="eyebrow">dev-shelf</p>
+          <h1>任务观察台</h1>
+          <p class="muted">
+            网页只负责查看 dev-shelf 任务进度、待确认项、最新建议和中间产物。确认、继续执行和 AI 交流请在终端完成。
+          </p>
+        </div>
+
+        <section class="section-block">
+          <div class="section-head compact-head">
+            <h2>任务列表</h2>
+            <button id="refresh-runs-button" type="button" class="secondary small-button">刷新</button>
+          </div>
+          <p id="auto-refresh-status" class="auto-refresh-status">自动刷新每 5 秒一次</p>
+          <div id="dev-shelf-run-list" class="run-list">
+            <p class="empty-state">正在读取任务。</p>
+          </div>
+        </section>
+      </aside>
+
+      <main class="panel panel-main">
+        <section class="section-block dev-shelf-block">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">dev-shelf</p>
+              <h2>当前任务进度</h2>
+            </div>
+            <span id="dev-shelf-run-badge" class="badge subtle">未选择</span>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item meta-item-wide meta-item-run-id">
+              <span class="meta-label">任务 ID</span>
+              <p id="dev-shelf-run-id">-</p>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">阶段</span>
+              <p id="dev-shelf-run-stage">-</p>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">状态</span>
+              <p id="dev-shelf-run-status">-</p>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">下一步建议</span>
+              <p id="dev-shelf-packet-target">-</p>
+            </div>
+          </div>
+          <div class="human-gate-panel">
+            <div class="section-head compact-head">
+              <h3>等待确认</h3>
+              <span id="dev-shelf-router-status" class="badge subtle mini-badge">-</span>
+            </div>
+            <div id="dev-shelf-human-gates" class="human-gate-list">
+              <p class="empty-state">请选择一个 run。</p>
+            </div>
+          </div>
+          <div class="dev-shelf-grid">
+            <div>
+              <h3>中间产物</h3>
+              <div id="dev-shelf-artifacts" class="artifact-list">
+                <p class="empty-state">请选择一个 run。</p>
+              </div>
+            </div>
+            <div>
+              <h3>产物预览</h3>
+              <p id="dev-shelf-artifact-preview-meta" class="minor-meta">-</p>
+              <div id="dev-shelf-artifact-preview" class="artifact-content artifact-preview markdown-body">
+                请选择一个产物。
+              </div>
+              <div class="packet-panel">
+                <h3>最新推进建议</h3>
+                <p id="dev-shelf-packet-meta" class="minor-meta">-</p>
+                <div id="dev-shelf-packet-content" class="artifact-content packet-content markdown-body">
+                  请选择一个 run。
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <script src="/static/app.js?v=20260422a" defer></script>
+  </body>
+</html>
