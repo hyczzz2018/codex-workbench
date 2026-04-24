@@ -684,11 +684,12 @@ function renderDevShelfGateway(detail) {
 
 function renderGatewayControls(detail) {
   const control = state.devShelf.gateway.control || defaultGatewayControlState();
+  const canStartGateway = canStartGatewayForRun(detail);
   const disabled = !detail || control.busy;
   elements.devShelfGatewayAccount.disabled = disabled;
   elements.devShelfGatewayModelControl.disabled = disabled;
   elements.devShelfGatewayLightMode.disabled = disabled;
-  elements.devShelfGatewayStartButton.disabled = disabled;
+  elements.devShelfGatewayStartButton.disabled = disabled || !canStartGateway;
   elements.devShelfGatewayAbortButton.disabled = disabled;
   elements.devShelfGatewayStartButton.textContent = control.busy ? "处理中" : "启动";
   elements.devShelfGatewayAbortButton.textContent = control.busy ? "处理中" : "中止";
@@ -709,8 +710,20 @@ function renderGatewayControls(detail) {
     elements.devShelfGatewayControlStatus.className = "gateway-control-status";
     return;
   }
+  if (!canStartGateway) {
+    elements.devShelfGatewayControlStatus.textContent = "当前 run 没有项目路径，不能启动 pi-agent。";
+    elements.devShelfGatewayControlStatus.className = "gateway-control-status error";
+    return;
+  }
   elements.devShelfGatewayControlStatus.textContent = "使用当前 run 的最新 execution packet 启动 pi-agent。";
   elements.devShelfGatewayControlStatus.className = "gateway-control-status";
+}
+
+function canStartGatewayForRun(detail) {
+  const packet = detail?.latest_packet?.content || {};
+  const workspace = packet.workspace || {};
+  const runtime = packet.agent_runtime_contract || {};
+  return Boolean(workspace.project_path || runtime.cwd);
 }
 
 function renderGatewayEvents(events) {

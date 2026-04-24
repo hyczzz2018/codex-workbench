@@ -224,6 +224,7 @@ class DevShelfReadService:
         if active is not None:
             raise DevShelfGatewayConflict(f"Gateway is already running for run: {run_id}")
 
+        self._ensure_gateway_runnable(run_dir)
         command = self._gateway_start_command(run_id, payload)
         launch_id = f"launch-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         started_at = self._utc_now()
@@ -692,7 +693,7 @@ class DevShelfReadService:
             "mode": "standard",
         }
 
-        workspace = self._workspace_from_payload(payload)
+        workspace = self._workspace_from_payload(payload, project_slug=project_slug)
         if workspace is not None:
             intake["workspace"] = workspace
         return intake
@@ -712,8 +713,15 @@ class DevShelfReadService:
             return "网页创建的 dev-shelf 任务"
         return first_line[:120]
 
-    def _workspace_from_payload(self, payload: DevShelfProjectCreateRequest) -> dict[str, Any] | None:
+    def _workspace_from_payload(
+        self,
+        payload: DevShelfProjectCreateRequest,
+        *,
+        project_slug: str,
+    ) -> dict[str, Any] | None:
         raw_project_path = (payload.project_path or "").strip()
+        if not raw_project_path and payload.project_context == "new_project":
+            raw_project_path = str(self.root.parent / project_slug)
         if not raw_project_path:
             return None
 
@@ -735,6 +743,24 @@ class DevShelfReadService:
             workspace["confirmed_at"] = self._utc_now()
             workspace["note"] = "用户在网页创建 run 时确认 workspace。"
         return workspace
+
+    def _ensure_gateway_runnable(self, run_dir: Path) -> None:
+        latest_packet = self._latest_packet(run_dir)
+        content = latest_packet.content if latest_packet else None
+        if not isinstance(content, dict):
+            raise DevShelfGatewayConflict("当前 run 没有可执行的 execution packet。")
+
+        workspace = content.get("workspace") if isinstance(content.get("workspace"), dict) else {}
+        runtime = (
+            content.get("agent_runtime_contract")
+            if isinstance(content.get("agent_runtime_contract"), dict)
+            else {}
+        )
+        cwd = workspace.get("project_path") or runtime.get("cwd")
+        if not cwd:
+            raise DevShelfGatewayConflict(
+                "当前 run 没有项目路径，不能启动 pi-agent。请填写项目路径后重新创建 run。"
+            )
 
     def _active_gateway_launch(self, run_id: str) -> DevShelfGatewayLaunch | None:
         launch = self._gateway_launches.get(run_id)

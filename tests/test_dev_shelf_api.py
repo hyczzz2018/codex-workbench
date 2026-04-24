@@ -21,6 +21,8 @@ def write_json(path, payload) -> None:
 
 def make_pending_gate_run(root, run_id="run_demo_20260415000000"):
     run_dir = root / "runs" / run_id
+    project_path = root / "project"
+    project_path.mkdir(parents=True, exist_ok=True)
     write_json(
         run_dir / "run-state.json",
         {
@@ -78,6 +80,20 @@ def make_pending_gate_run(root, run_id="run_demo_20260415000000"):
             "decision_type": "wait_for_human",
             "ready": False,
             "target": ["spec_approval"],
+            "workspace": {
+                "kind": "existing_project",
+                "project_path": str(project_path),
+                "existing_project_path": str(project_path),
+                "allowed_read_paths": [str(project_path)],
+                "allowed_write_paths": [str(project_path)],
+                "confirmation_status": "confirmed",
+            },
+            "agent_runtime_contract": {
+                "cwd": str(project_path),
+                "workspace_confirmed": True,
+                "allowed_read_paths": [str(project_path)],
+                "allowed_write_paths": [str(project_path)],
+            },
         },
     )
     return run_dir
@@ -342,6 +358,40 @@ def test_dev_shelf_create_run_builds_project_intake(monkeypatch, tmp_path) -> No
     assert captured["intake"]["workspace"]["allowed_write_paths"] == [str((tmp_path / "project").resolve())]
 
 
+def test_dev_shelf_create_run_defaults_new_project_workspace_path(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    service = DevShelfReadService(root, tools_root=root)
+    captured = {}
+
+    def fake_run_tool(script_name, args):
+        intake_path = args[args.index("--intake") + 1]
+        captured["intake"] = json.loads(open(intake_path, encoding="utf-8").read())
+        return {
+            "status": "created",
+            "project_name": captured["intake"]["project_name"],
+            "project_slug": captured["intake"]["project_slug"],
+            "run_id": "run_hello_world_20260424000000",
+        }
+
+    monkeypatch.setattr(service, "_run_dev_shelf_tool", fake_run_tool)
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+
+    routes.create_dev_shelf_run(
+        DevShelfProjectCreateRequest(
+            project_name="Hello World",
+            requirement="创建一个介绍页",
+            project_context="new_project",
+            workspace_confirmed=True,
+        )
+    )
+
+    default_path = str((root.parent / "hello_world").resolve())
+    assert captured["intake"]["workspace"]["kind"] == "new_project"
+    assert captured["intake"]["workspace"]["project_path"] == default_path
+    assert captured["intake"]["workspace"]["allowed_read_paths"] == [default_path]
+    assert captured["intake"]["workspace"]["allowed_write_paths"] == [default_path]
+
+
 def test_dev_shelf_gateway_routes_expose_status_events_result_and_candidates(monkeypatch, tmp_path) -> None:
     root = tmp_path / "dev-shelf"
     run_dir = make_pending_gate_run(root)
@@ -443,6 +493,42 @@ def test_dev_shelf_gateway_start_rejects_running_process(monkeypatch, tmp_path) 
         routes.start_dev_shelf_gateway("run_demo_20260415000000", DevShelfGatewayStartRequest())
 
     assert exc.value.status_code == 409
+
+
+def test_dev_shelf_gateway_start_rejects_run_without_workspace(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    run_dir = root / "runs" / "run_demo_20260418000000"
+    write_json(
+        run_dir / "run-state.json",
+        {
+            "run_id": "run_demo_20260418000000",
+            "project_name": "Demo Run",
+            "request_summary": "Missing workspace.",
+            "current_stage": "requirements_drafting",
+            "status": "in_progress",
+            "artifacts": [],
+            "history": [],
+        },
+    )
+    write_json(
+        run_dir / "packets" / "0001-execution-packet.json",
+        {
+            "packet_version": "1.0",
+            "decision_type": "run_manifest",
+            "ready": True,
+            "target": "template.requirement-confirmation-checklist",
+            "workspace": {"project_path": None},
+            "agent_runtime_contract": {"cwd": None},
+        },
+    )
+    service = DevShelfReadService(root, tools_root=root)
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+
+    with pytest.raises(HTTPException) as exc:
+        routes.start_dev_shelf_gateway("run_demo_20260418000000", DevShelfGatewayStartRequest())
+
+    assert exc.value.status_code == 409
+    assert "没有项目路径" in exc.value.detail
 
 
 def test_dev_shelf_run_detail_rejects_artifact_preview_outside_root(monkeypatch, tmp_path) -> None:
