@@ -1,23 +1,31 @@
 # dev-shelf Workbench
 
-dev-shelf Workbench 是一个本地 FastAPI 网页应用，用来观察 dev-shelf run 的当前状态和中间产物。
+dev-shelf Workbench 是一个本地 FastAPI 网页应用，用来从需求创建 dev-shelf run，观察中间产物，并控制单次 pi-agent Gateway 运行。
 
-当前页面定位是 **任务观察台**：
+当前页面定位是 **单人版任务工作台**：
 
-- 网页只负责查看 dev-shelf 任务进度、待确认项、最新建议和中间产物。
-- 确认、继续执行和 AI 交流请在终端完成。
-- 网页端不提供 approve / reject / 确认 / 驳回等流程推进入口。
+- 网页可以输入需求并创建 dev-shelf run。
+- 网页负责查看 dev-shelf 任务进度、待确认项、最新建议和中间产物。
+- Gateway / pi-agent 放在执行详情中，用于执行阶段。
+- 网页可以启动或中止一次 pi-agent Gateway。
+- 网页端暂不提供 apply Gateway candidate。
+- 网页端暂不提供 approve / reject / 确认 / 驳回等流程推进入口。
 
 ## 功能范围
 
 当前 MVP 包含：
 
 - dev-shelf run 列表。
+- 从网页创建 run，调用 dev-shelf 现有 `scripts/dev_shelf_start_project.py`。
 - 当前 run 进度展示。
 - 待确认项只读展示。
 - 中间产物列表。
 - 安全的文本产物预览。
 - 最新 execution packet 摘要。
+- 最新 Gateway / pi-agent session 状态。
+- Gateway runtime events 按 cursor 轮询展示。
+- Gateway result / event candidates 摘要。
+- 网页启动 / 中止单次 Gateway。
 - 中文状态映射。
 - 5 秒轮询自动刷新。
 
@@ -26,6 +34,8 @@ dev-shelf Workbench 是一个本地 FastAPI 网页应用，用来观察 dev-shel
 - WebSocket / SSE 实时通道。
 - 网页驱动终端 agent。
 - 网页端人工确认或驳回。
+- 网页端 apply Gateway candidate。
+- 多 Gateway session 调度。
 - 旧聊天框或旧 session 工作流 UI。
 - 数据库持久化。
 
@@ -37,7 +47,7 @@ codex-workbench/
     api/          # FastAPI 路由
     schemas/      # API schema
     services/     # dev-shelf 读取、旧 session 兼容服务
-    static/       # 任务观察台 HTML/CSS/JS
+    static/       # 单人版工作台 HTML/CSS/JS
     main.py       # FastAPI 入口
   tests/          # API、服务和静态页面测试
   pyproject.toml
@@ -80,10 +90,22 @@ DEV_SHELF_TOOLS_ROOT=/path/to/dev-shelf \
 
 ## API
 
-主要只读接口：
+主要接口：
 
+- `POST /api/dev-shelf/runs`
 - `GET /api/dev-shelf/runs`
 - `GET /api/dev-shelf/runs/{run_id}`
+- `GET /api/dev-shelf/runs/{run_id}/gateway/latest`
+- `GET /api/dev-shelf/runs/{run_id}/gateway/events?cursor=0&limit=100`
+- `GET /api/dev-shelf/runs/{run_id}/gateway/result`
+- `GET /api/dev-shelf/runs/{run_id}/gateway/candidates`
+
+Gateway 控制接口：
+
+- `POST /api/dev-shelf/runs/{run_id}/gateway/start`
+- `POST /api/dev-shelf/runs/{run_id}/gateway/abort`
+
+`start` 第一版是本地后台进程壳，会调用 dev-shelf 现有 `scripts/dev_shelf_gateway.py`。同一个 Workbench 进程内，一个 run 同时只允许一个 Gateway 进程。
 
 兼容保留接口：
 
@@ -92,6 +114,22 @@ DEV_SHELF_TOOLS_ROOT=/path/to/dev-shelf \
 - `POST /api/dev-shelf/runs/{run_id}/human-gates/{gate_id}/decision`
 
 后端确认写回接口暂时保留用于兼容；当前网页不会调用它。
+
+## 创建 run
+
+网页创建 run 时不会直接写 `run-state.json`。后端会生成 intake JSON，并调用 dev-shelf 现有脚本：
+
+```text
+scripts/dev_shelf_start_project.py
+```
+
+该脚本负责创建：
+
+- `docs/<project_slug>/requirement-draft.md`
+- `runs/<run_id>/run-state.json`
+- 首个 `packets/*-execution-packet.*`
+
+如果填写项目路径，路径会进入 run-state 的 workspace。只有勾选“确认路径权限”时，workspace 会标记为 confirmed，并把项目路径加入 allowed write paths。
 
 ## 产物预览安全边界
 
@@ -111,6 +149,9 @@ artifact 预览由后端读取 dev-shelf 文件系统，当前规则：
 - 待确认项。
 - artifact 列表和当前预览内容。
 - 最新 execution packet。
+- 最新 Gateway session。
+- Gateway runtime events 增量页。
+- Gateway result / candidates 摘要。
 
 自动刷新失败时会保留当前已展示数据，等待下一轮恢复。
 

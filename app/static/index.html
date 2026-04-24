@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dev-shelf 任务观察台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260421d" />
+    <title>dev-shelf 工作台</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20260424b" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="panel panel-sidebar">
         <div class="brand-block">
           <p class="eyebrow">dev-shelf</p>
-          <h1>任务观察台</h1>
+          <h1>工作台</h1>
           <p class="muted">
-            网页只负责查看 dev-shelf 任务进度、待确认项、最新建议和中间产物。确认、继续执行和 AI 交流请在终端完成。
+            从需求输入开始创建 run，查看流程进度和中间产物，执行阶段可启动 pi-agent。
           </p>
         </div>
 
@@ -30,11 +30,66 @@
       </aside>
 
       <main class="panel panel-main">
+        <section class="section-block project-intake-panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Project</p>
+              <h2>创建项目</h2>
+            </div>
+            <span id="project-create-badge" class="badge subtle">待输入</span>
+          </div>
+          <form id="project-create-form" class="project-create-form">
+            <div class="project-fields">
+              <label>
+                <span>项目名</span>
+                <input id="project-name-input" autocomplete="off" />
+              </label>
+              <label>
+                <span>任务类型</span>
+                <select id="project-task-type-input">
+                  <option value="general">通用任务</option>
+                  <option value="new-project">新项目</option>
+                  <option value="feature">新增功能</option>
+                  <option value="bugfix">修复问题</option>
+                  <option value="refactor">重构</option>
+                  <option value="automation">自动化</option>
+                  <option value="analysis">分析调研</option>
+                  <option value="structured-llm-app">结构化 LLM 应用</option>
+                </select>
+              </label>
+              <label>
+                <span>项目上下文</span>
+                <select id="project-context-input">
+                  <option value="new_project">新项目</option>
+                  <option value="existing_project">已有项目</option>
+                  <option value="unknown">先不确定</option>
+                </select>
+              </label>
+              <label>
+                <span>项目路径</span>
+                <input id="project-path-input" autocomplete="off" />
+              </label>
+            </div>
+            <label class="requirement-input-label">
+              <span>需求</span>
+              <textarea id="project-requirement-input" rows="5"></textarea>
+            </label>
+            <div class="project-create-footer">
+              <label class="checkbox-label">
+                <input id="project-workspace-confirmed-input" type="checkbox" />
+                <span>确认路径权限</span>
+              </label>
+              <button id="project-create-button" type="submit" class="primary">创建 run</button>
+              <p id="project-create-status" class="project-create-status">-</p>
+            </div>
+          </form>
+        </section>
+
         <section class="section-block dev-shelf-block">
           <div class="section-head">
             <div>
               <p class="eyebrow">dev-shelf</p>
-              <h2>当前任务进度</h2>
+              <h2>当前 run</h2>
             </div>
             <span id="dev-shelf-run-badge" class="badge subtle">未选择</span>
           </div>
@@ -65,6 +120,63 @@
               <p class="empty-state">请选择一个 run。</p>
             </div>
           </div>
+          <div class="gateway-panel">
+            <div class="section-head compact-head">
+              <h3>执行详情</h3>
+              <span id="dev-shelf-gateway-status" class="badge subtle mini-badge">-</span>
+            </div>
+            <div class="gateway-meta-grid">
+              <div>
+                <span class="meta-label">Session</span>
+                <p id="dev-shelf-gateway-session">-</p>
+              </div>
+              <div>
+                <span class="meta-label">模型</span>
+                <p id="dev-shelf-gateway-model">-</p>
+              </div>
+              <div>
+                <span class="meta-label">事件</span>
+                <p id="dev-shelf-gateway-event-count">-</p>
+              </div>
+              <div>
+                <span class="meta-label">候选事件</span>
+                <p id="dev-shelf-gateway-candidate-count">-</p>
+              </div>
+            </div>
+            <div class="gateway-control">
+              <label>
+                <span>账号</span>
+                <input id="dev-shelf-gateway-account" value="a" autocomplete="off" />
+              </label>
+              <label>
+                <span>模型</span>
+                <input id="dev-shelf-gateway-model-control" value="gpt-5.4" autocomplete="off" />
+              </label>
+              <label class="checkbox-label">
+                <input id="dev-shelf-gateway-light-mode" type="checkbox" />
+                <span>轻量模式</span>
+              </label>
+              <div class="gateway-actions">
+                <button id="dev-shelf-gateway-start-button" type="button" class="primary small-button">启动</button>
+                <button id="dev-shelf-gateway-abort-button" type="button" class="secondary small-button">中止</button>
+              </div>
+              <p id="dev-shelf-gateway-control-status" class="gateway-control-status">-</p>
+            </div>
+            <div class="gateway-grid">
+              <div>
+                <h4>运行事件</h4>
+                <div id="dev-shelf-gateway-events" class="gateway-events">
+                  <p class="empty-state">请选择一个 run。</p>
+                </div>
+              </div>
+              <div>
+                <h4>结果摘要</h4>
+                <div id="dev-shelf-gateway-summary" class="gateway-summary">
+                  <p class="empty-state">暂无 Gateway 结果。</p>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="dev-shelf-grid">
             <div>
               <h3>中间产物</h3>
@@ -92,6 +204,6 @@
       </main>
     </div>
 
-    <script src="/static/app.js?v=20260422a" defer></script>
+    <script src="/static/app.js?v=20260424b" defer></script>
   </body>
 </html>

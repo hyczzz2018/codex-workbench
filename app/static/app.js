@@ -10,6 +10,27 @@ const state = {
     autoRefreshInFlight: false,
     autoRefreshError: null,
     lastRefreshedAt: null,
+    createRun: {
+      busy: false,
+      message: null,
+      error: null,
+      lastRunId: null,
+    },
+    gateway: {
+      status: null,
+      events: [],
+      result: null,
+      candidates: null,
+      cursor: 0,
+      sessionId: null,
+      error: null,
+      control: {
+        busy: false,
+        message: null,
+        error: null,
+        lastResponse: null,
+      },
+    },
   },
 };
 
@@ -84,6 +105,16 @@ const targetLabels = {
 };
 
 const elements = {
+  projectCreateForm: document.querySelector("#project-create-form"),
+  projectCreateBadge: document.querySelector("#project-create-badge"),
+  projectNameInput: document.querySelector("#project-name-input"),
+  projectTaskTypeInput: document.querySelector("#project-task-type-input"),
+  projectContextInput: document.querySelector("#project-context-input"),
+  projectPathInput: document.querySelector("#project-path-input"),
+  projectRequirementInput: document.querySelector("#project-requirement-input"),
+  projectWorkspaceConfirmedInput: document.querySelector("#project-workspace-confirmed-input"),
+  projectCreateButton: document.querySelector("#project-create-button"),
+  projectCreateStatus: document.querySelector("#project-create-status"),
   refreshRunsButton: document.querySelector("#refresh-runs-button"),
   autoRefreshStatus: document.querySelector("#auto-refresh-status"),
   devShelfRunList: document.querySelector("#dev-shelf-run-list"),
@@ -93,6 +124,19 @@ const elements = {
   devShelfRunStatus: document.querySelector("#dev-shelf-run-status"),
   devShelfPacketTarget: document.querySelector("#dev-shelf-packet-target"),
   devShelfRouterStatus: document.querySelector("#dev-shelf-router-status"),
+  devShelfGatewayStatus: document.querySelector("#dev-shelf-gateway-status"),
+  devShelfGatewaySession: document.querySelector("#dev-shelf-gateway-session"),
+  devShelfGatewayModel: document.querySelector("#dev-shelf-gateway-model"),
+  devShelfGatewayEventCount: document.querySelector("#dev-shelf-gateway-event-count"),
+  devShelfGatewayCandidateCount: document.querySelector("#dev-shelf-gateway-candidate-count"),
+  devShelfGatewayEvents: document.querySelector("#dev-shelf-gateway-events"),
+  devShelfGatewaySummary: document.querySelector("#dev-shelf-gateway-summary"),
+  devShelfGatewayAccount: document.querySelector("#dev-shelf-gateway-account"),
+  devShelfGatewayModelControl: document.querySelector("#dev-shelf-gateway-model-control"),
+  devShelfGatewayLightMode: document.querySelector("#dev-shelf-gateway-light-mode"),
+  devShelfGatewayStartButton: document.querySelector("#dev-shelf-gateway-start-button"),
+  devShelfGatewayAbortButton: document.querySelector("#dev-shelf-gateway-abort-button"),
+  devShelfGatewayControlStatus: document.querySelector("#dev-shelf-gateway-control-status"),
   devShelfHumanGates: document.querySelector("#dev-shelf-human-gates"),
   devShelfArtifacts: document.querySelector("#dev-shelf-artifacts"),
   devShelfArtifactPreviewMeta: document.querySelector("#dev-shelf-artifact-preview-meta"),
@@ -101,7 +145,10 @@ const elements = {
   devShelfPacketContent: document.querySelector("#dev-shelf-packet-content"),
 };
 
+elements.projectCreateForm.addEventListener("submit", (event) => createDevShelfRun(event));
 elements.refreshRunsButton.addEventListener("click", () => loadDevShelfRuns());
+elements.devShelfGatewayStartButton.addEventListener("click", () => startDevShelfGateway());
+elements.devShelfGatewayAbortButton.addEventListener("click", () => abortDevShelfGateway());
 
 renderDevShelf();
 loadDevShelfRuns();
@@ -109,6 +156,56 @@ startDevShelfAutoRefresh();
 
 async function loadDevShelfRuns() {
   await refreshDevShelfSnapshot({ silent: false });
+}
+
+async function createDevShelfRun(event) {
+  event.preventDefault();
+  const createRun = state.devShelf.createRun;
+  const projectName = elements.projectNameInput.value.trim();
+  const requirement = elements.projectRequirementInput.value.trim();
+  if (!projectName || !requirement) {
+    createRun.error = "项目名和需求都要填写。";
+    createRun.message = null;
+    renderDevShelf();
+    return;
+  }
+
+  createRun.busy = true;
+  createRun.error = null;
+  createRun.message = null;
+  renderDevShelf();
+
+  try {
+    const payload = {
+      project_name: projectName,
+      requirement,
+      task_type: elements.projectTaskTypeInput.value,
+      project_context: elements.projectContextInput.value,
+      project_path: elements.projectPathInput.value.trim() || null,
+      workspace_confirmed: elements.projectWorkspaceConfirmedInput.checked,
+      allow_create_project_dir: elements.projectContextInput.value === "new_project",
+    };
+    const response = await fetch("/api/dev-shelf/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(result.detail || "创建 run 失败");
+    }
+    createRun.lastRunId = result.run_id;
+    createRun.message = result.message || `已创建 ${result.run_id}`;
+    state.devShelf.selectedRunId = result.run_id;
+    state.devShelf.selectedArtifactId = null;
+    resetGatewayState();
+    await refreshDevShelfSnapshot({ silent: false });
+  } catch (error) {
+    createRun.error = error.message;
+  } finally {
+    createRun.busy = false;
+    renderDevShelf();
+  }
 }
 
 function startDevShelfAutoRefresh() {
@@ -160,6 +257,7 @@ async function refreshDevShelfSnapshot({ silent } = {}) {
     } else {
       state.devShelf.detail = null;
       state.devShelf.selectedArtifactId = null;
+      resetGatewayState();
     }
     state.devShelf.lastRefreshedAt = new Date();
     state.devShelf.autoRefreshError = null;
@@ -188,6 +286,161 @@ async function loadDevShelfRunDetail(runId) {
   state.devShelf.selectedRunId = runId;
   state.devShelf.detail = await response.json();
   ensureSelectedArtifact();
+  await loadGatewaySnapshot(runId);
+}
+
+function defaultGatewayControlState() {
+  return {
+    busy: false,
+    message: null,
+    error: null,
+    lastResponse: null,
+  };
+}
+
+function resetGatewayState({ preserveControl } = {}) {
+  const control = preserveControl
+    ? (state.devShelf.gateway.control || defaultGatewayControlState())
+    : defaultGatewayControlState();
+  state.devShelf.gateway = {
+    status: null,
+    events: [],
+    result: null,
+    candidates: null,
+    cursor: 0,
+    sessionId: null,
+    error: null,
+    control,
+  };
+}
+
+async function loadGatewaySnapshot(runId) {
+  try {
+    const statusResponse = await fetch(`/api/dev-shelf/runs/${runId}/gateway/latest`, { cache: "no-store" });
+    if (statusResponse.status === 404) {
+      resetGatewayState({ preserveControl: true });
+      state.devShelf.gateway.error = "暂无 Gateway session。";
+      return;
+    }
+    if (!statusResponse.ok) {
+      throw new Error("读取 Gateway 状态失败");
+    }
+    const status = await statusResponse.json();
+    const sessionChanged = status.gateway_session_id !== state.devShelf.gateway.sessionId;
+    if (sessionChanged) {
+      state.devShelf.gateway.events = [];
+      state.devShelf.gateway.cursor = 0;
+      state.devShelf.gateway.result = null;
+      state.devShelf.gateway.candidates = null;
+    }
+    state.devShelf.gateway.status = status;
+    state.devShelf.gateway.sessionId = status.gateway_session_id;
+    state.devShelf.gateway.error = null;
+
+    const params = new URLSearchParams({
+      cursor: String(state.devShelf.gateway.cursor || 0),
+      limit: "50",
+    });
+    if (status.gateway_session_id) {
+      params.set("session_id", status.gateway_session_id);
+    }
+    const [eventsResponse, resultResponse, candidatesResponse] = await Promise.all([
+      fetch(`/api/dev-shelf/runs/${runId}/gateway/events?${params.toString()}`, { cache: "no-store" }),
+      fetch(`/api/dev-shelf/runs/${runId}/gateway/result?session_id=${encodeURIComponent(status.gateway_session_id)}`, {
+        cache: "no-store",
+      }),
+      fetch(`/api/dev-shelf/runs/${runId}/gateway/candidates?session_id=${encodeURIComponent(status.gateway_session_id)}`, {
+        cache: "no-store",
+      }),
+    ]);
+
+    if (eventsResponse.ok) {
+      const page = await eventsResponse.json();
+      state.devShelf.gateway.events = [...state.devShelf.gateway.events, ...(page.events || [])].slice(-120);
+      state.devShelf.gateway.cursor = page.next_cursor || state.devShelf.gateway.cursor;
+    }
+    if (resultResponse.ok) {
+      state.devShelf.gateway.result = await resultResponse.json();
+    }
+    if (candidatesResponse.ok) {
+      state.devShelf.gateway.candidates = await candidatesResponse.json();
+    }
+  } catch (error) {
+    state.devShelf.gateway.error = error.message;
+  }
+}
+
+async function startDevShelfGateway() {
+  const runId = state.devShelf.selectedRunId;
+  if (!runId) {
+    return;
+  }
+  const control = state.devShelf.gateway.control;
+  control.busy = true;
+  control.message = null;
+  control.error = null;
+  renderDevShelf();
+
+  try {
+    const payload = {
+      account: elements.devShelfGatewayAccount.value.trim() || "a",
+      provider: "openai-codex",
+      model: elements.devShelfGatewayModelControl.value.trim() || "gpt-5.4",
+      no_session: true,
+      light_mode: elements.devShelfGatewayLightMode.checked,
+    };
+    const response = await fetch(`/api/dev-shelf/runs/${runId}/gateway/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(result.detail || "启动 Gateway 失败");
+    }
+    control.lastResponse = result;
+    control.message = result.message || "Gateway 已启动。";
+    state.devShelf.gateway.events = [];
+    state.devShelf.gateway.cursor = 0;
+    await loadGatewaySnapshot(runId);
+  } catch (error) {
+    control.error = error.message;
+  } finally {
+    control.busy = false;
+    renderDevShelf();
+  }
+}
+
+async function abortDevShelfGateway() {
+  const runId = state.devShelf.selectedRunId;
+  if (!runId) {
+    return;
+  }
+  const control = state.devShelf.gateway.control;
+  control.busy = true;
+  control.message = null;
+  control.error = null;
+  renderDevShelf();
+
+  try {
+    const response = await fetch(`/api/dev-shelf/runs/${runId}/gateway/abort`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(result.detail || "中止 Gateway 失败");
+    }
+    control.lastResponse = result;
+    control.message = result.message || labelGatewayControlStatus(result.status);
+    await loadGatewaySnapshot(runId);
+  } catch (error) {
+    control.error = error.message;
+  } finally {
+    control.busy = false;
+    renderDevShelf();
+  }
 }
 
 async function selectDevShelfRun(runId) {
@@ -222,11 +475,44 @@ function ensureSelectedArtifact() {
 }
 
 function renderDevShelf() {
+  renderProjectCreate();
   renderDevShelfRuns();
   renderDevShelfDetail();
   renderAutoRefreshStatus();
   elements.refreshRunsButton.disabled = state.devShelf.loading;
   elements.refreshRunsButton.textContent = state.devShelf.loading ? "读取中" : "刷新";
+}
+
+function renderProjectCreate() {
+  const createRun = state.devShelf.createRun;
+  const disabled = createRun.busy;
+  elements.projectNameInput.disabled = disabled;
+  elements.projectTaskTypeInput.disabled = disabled;
+  elements.projectContextInput.disabled = disabled;
+  elements.projectPathInput.disabled = disabled;
+  elements.projectRequirementInput.disabled = disabled;
+  elements.projectWorkspaceConfirmedInput.disabled = disabled;
+  elements.projectCreateButton.disabled = disabled;
+  elements.projectCreateButton.textContent = disabled ? "创建中" : "创建 run";
+
+  if (createRun.error) {
+    elements.projectCreateBadge.textContent = "失败";
+    elements.projectCreateBadge.className = "badge waiting";
+    elements.projectCreateStatus.textContent = createRun.error;
+    elements.projectCreateStatus.className = "project-create-status error";
+    return;
+  }
+  if (createRun.message) {
+    elements.projectCreateBadge.textContent = "已创建";
+    elements.projectCreateBadge.className = "badge ready";
+    elements.projectCreateStatus.textContent = createRun.message;
+    elements.projectCreateStatus.className = "project-create-status";
+    return;
+  }
+  elements.projectCreateBadge.textContent = disabled ? "创建中" : "待输入";
+  elements.projectCreateBadge.className = "badge subtle";
+  elements.projectCreateStatus.textContent = "创建后会自动选中新 run，并显示需求草稿等中间产物。";
+  elements.projectCreateStatus.className = "project-create-status";
 }
 
 function renderAutoRefreshStatus() {
@@ -301,6 +587,7 @@ function renderDevShelfDetail() {
     elements.devShelfRunStatus.textContent = "-";
     elements.devShelfPacketTarget.textContent = "-";
     elements.devShelfRouterStatus.textContent = "-";
+    renderDevShelfGateway(null);
     elements.devShelfHumanGates.innerHTML = '<p class="empty-state">请选择一个任务。</p>';
     elements.devShelfPacketMeta.textContent = "-";
     elements.devShelfArtifacts.innerHTML = '<p class="empty-state">请选择一个任务。</p>';
@@ -317,6 +604,7 @@ function renderDevShelfDetail() {
   elements.devShelfRunStatus.textContent = labelRunStatus(detail.status);
   elements.devShelfPacketTarget.textContent = buildDevShelfNextAction(detail);
   elements.devShelfRouterStatus.textContent = labelDecision(detail.router?.decision_type);
+  renderDevShelfGateway(detail);
   renderDevShelfHumanGates(detail);
   renderDevShelfArtifacts(detail.artifacts || []);
   renderSelectedArtifactPreview(detail.artifacts || []);
@@ -362,6 +650,120 @@ function renderDevShelfHumanGates(detail) {
     head.append(title, badge);
     item.append(head, meta, note);
     elements.devShelfHumanGates.appendChild(item);
+  }
+}
+
+function renderDevShelfGateway(detail) {
+  const gateway = state.devShelf.gateway;
+  const status = detail ? gateway.status : null;
+  if (!status) {
+    elements.devShelfGatewayStatus.textContent = gateway.error || "暂无";
+    elements.devShelfGatewayStatus.className = "badge subtle mini-badge";
+    elements.devShelfGatewaySession.textContent = "-";
+    elements.devShelfGatewayModel.textContent = "-";
+    elements.devShelfGatewayEventCount.textContent = "-";
+    elements.devShelfGatewayCandidateCount.textContent = "-";
+    elements.devShelfGatewayEvents.innerHTML = `<p class="empty-state">${gateway.error || "暂无 Gateway session。"}</p>`;
+    elements.devShelfGatewaySummary.innerHTML = '<p class="empty-state">暂无 Gateway 结果。</p>';
+    renderGatewayControls(detail);
+    return;
+  }
+
+  elements.devShelfGatewayStatus.textContent = labelGatewayStatus(status.status);
+  elements.devShelfGatewayStatus.className = `badge ${gatewayStatusClass(status.status)} mini-badge`;
+  elements.devShelfGatewaySession.textContent = status.gateway_session_id || "-";
+  elements.devShelfGatewayModel.textContent =
+    [status.provider, status.model].filter(Boolean).join(" / ") || "-";
+  elements.devShelfGatewayEventCount.textContent = String(status.event_count ?? "-");
+  const candidateCount = status.event_candidate_summary?.candidate_count ?? 0;
+  elements.devShelfGatewayCandidateCount.textContent = String(candidateCount);
+  renderGatewayEvents(gateway.events || []);
+  renderGatewaySummary(gateway);
+  renderGatewayControls(detail);
+}
+
+function renderGatewayControls(detail) {
+  const control = state.devShelf.gateway.control || defaultGatewayControlState();
+  const disabled = !detail || control.busy;
+  elements.devShelfGatewayAccount.disabled = disabled;
+  elements.devShelfGatewayModelControl.disabled = disabled;
+  elements.devShelfGatewayLightMode.disabled = disabled;
+  elements.devShelfGatewayStartButton.disabled = disabled;
+  elements.devShelfGatewayAbortButton.disabled = disabled;
+  elements.devShelfGatewayStartButton.textContent = control.busy ? "处理中" : "启动";
+  elements.devShelfGatewayAbortButton.textContent = control.busy ? "处理中" : "中止";
+
+  if (!detail) {
+    elements.devShelfGatewayControlStatus.textContent = "请选择一个 run。";
+    elements.devShelfGatewayControlStatus.className = "gateway-control-status";
+    return;
+  }
+  if (control.error) {
+    elements.devShelfGatewayControlStatus.textContent = control.error;
+    elements.devShelfGatewayControlStatus.className = "gateway-control-status error";
+    return;
+  }
+  if (control.message) {
+    const last = control.lastResponse?.status ? ` · ${labelGatewayControlStatus(control.lastResponse.status)}` : "";
+    elements.devShelfGatewayControlStatus.textContent = `${control.message}${last}`;
+    elements.devShelfGatewayControlStatus.className = "gateway-control-status";
+    return;
+  }
+  elements.devShelfGatewayControlStatus.textContent = "使用当前 run 的最新 execution packet 启动 pi-agent。";
+  elements.devShelfGatewayControlStatus.className = "gateway-control-status";
+}
+
+function renderGatewayEvents(events) {
+  elements.devShelfGatewayEvents.innerHTML = "";
+  if (!events.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "当前 Gateway session 还没有可展示事件。";
+    elements.devShelfGatewayEvents.appendChild(empty);
+    return;
+  }
+  for (const event of events) {
+    const item = document.createElement("article");
+    item.className = `gateway-event gateway-event-${event.kind || "unknown"}`;
+
+    const head = document.createElement("div");
+    head.className = "gateway-event-head";
+
+    const title = document.createElement("strong");
+    title.textContent = `#${event.sequence || "-"} ${labelRuntimeEventKind(event.kind)}`;
+
+    const time = document.createElement("span");
+    time.className = "minor-meta";
+    time.textContent = formatTime(event.ts);
+
+    const body = document.createElement("p");
+    body.textContent = summarizeRuntimeEvent(event);
+
+    head.append(title, time);
+    item.append(head, body);
+    elements.devShelfGatewayEvents.appendChild(item);
+  }
+}
+
+function renderGatewaySummary(gateway) {
+  elements.devShelfGatewaySummary.innerHTML = "";
+  const resultSummary = gateway.result?.payload?.summary || gateway.status?.artifact_result_summary;
+  const candidateSummary = gateway.candidates?.payload?.summary || gateway.status?.event_candidate_summary;
+  const lines = [
+    ["状态", labelGatewayStatus(gateway.status?.status)],
+    ["pi session", gateway.status?.pi_session_id || "-"],
+    ["产物", summaryCounts(resultSummary)],
+    ["候选", summaryCounts(candidateSummary)],
+  ];
+  for (const [label, value] of lines) {
+    const row = document.createElement("div");
+    row.className = "gateway-summary-row";
+    const name = document.createElement("span");
+    name.textContent = label;
+    const content = document.createElement("strong");
+    content.textContent = value;
+    row.append(name, content);
+    elements.devShelfGatewaySummary.appendChild(row);
   }
 }
 
@@ -502,6 +904,50 @@ function labelGateStatus(value) {
   return value ? "未知状态" : "-";
 }
 
+function labelGatewayStatus(value) {
+  if (value === "completed") {
+    return "已完成";
+  }
+  if (value === "failed") {
+    return "失败";
+  }
+  if (value === "starting") {
+    return "启动中";
+  }
+  return value || "-";
+}
+
+function gatewayStatusClass(value) {
+  if (value === "completed") {
+    return "ready";
+  }
+  if (value === "failed") {
+    return "waiting";
+  }
+  return "subtle";
+}
+
+function labelGatewayControlStatus(value) {
+  const labels = {
+    started: "已启动",
+    aborted: "已中止",
+    abort_requested: "已请求中止",
+    not_running: "没有运行中的 Gateway",
+  };
+  return labels[value] || value || "-";
+}
+
+function labelRuntimeEventKind(value) {
+  const labels = {
+    response: "响应",
+    text: "文本",
+    tool: "工具",
+    stderr: "错误输出",
+    lifecycle: "生命周期",
+  };
+  return labels[value] || "事件";
+}
+
 function labelArtifact(value) {
   if (!value) {
     return "相关产物";
@@ -539,6 +985,44 @@ function runStatusClass(value) {
   return "subtle";
 }
 
+function summarizeRuntimeEvent(event) {
+  const raw = event.raw || {};
+  if (event.kind === "text" && raw.delta) {
+    return raw.delta;
+  }
+  if (event.kind === "stderr" && raw.line) {
+    return raw.line;
+  }
+  if (raw.command) {
+    return `command: ${raw.command}${raw.success === false ? " failed" : ""}`;
+  }
+  if (raw.type) {
+    return `type: ${raw.type}`;
+  }
+  const text = JSON.stringify(raw);
+  return text.length > 220 ? `${text.slice(0, 220)}...` : text;
+}
+
+function summaryCounts(summary) {
+  if (!summary) {
+    return "-";
+  }
+  const parts = [];
+  if (typeof summary.output_count === "number") {
+    parts.push(`输出 ${summary.output_count}`);
+  }
+  if (typeof summary.produced_count === "number") {
+    parts.push(`已产出 ${summary.produced_count}`);
+  }
+  if (typeof summary.candidate_count === "number") {
+    parts.push(`候选 ${summary.candidate_count}`);
+  }
+  if (typeof summary.skipped_count === "number") {
+    parts.push(`跳过 ${summary.skipped_count}`);
+  }
+  return parts.join(" · ") || "-";
+}
+
 function buildDevShelfNextAction(detail) {
   const gates = detail.pending_human_gates || [];
   if (gates.length) {
@@ -559,6 +1043,14 @@ function buildDevShelfNextAction(detail) {
     return "等待工作终端继续推进下一阶段。";
   }
   return "等待终端流程推进。";
+}
+
+async function readJsonResponse(response) {
+  try {
+    return await response.json();
+  } catch (error) {
+    return { detail: response.statusText || "请求失败" };
+  }
 }
 
 function buildPacketSummary(packet) {

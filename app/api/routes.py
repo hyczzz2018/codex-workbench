@@ -3,9 +3,28 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from app.schemas.common import Event, EventType
-from app.schemas.dev_shelf import DevShelfHumanGateDecisionRequest, DevShelfRunDetail, DevShelfRunList
+from app.schemas.dev_shelf import (
+    DevShelfGatewayAbortRequest,
+    DevShelfGatewayArtifactPayload,
+    DevShelfGatewayControlResponse,
+    DevShelfGatewayRuntimeEvents,
+    DevShelfGatewaySessionStatus,
+    DevShelfGatewayStartRequest,
+    DevShelfHumanGateDecisionRequest,
+    DevShelfProjectCreateRequest,
+    DevShelfProjectCreateResponse,
+    DevShelfRunDetail,
+    DevShelfRunList,
+)
 from app.schemas.session import AcceptedResponse, ConfirmRequest, MessageCreate, MessageList, SessionCreate, SessionRead
-from app.services.dev_shelf import DevShelfGateConflict, DevShelfRunNotFound, DevShelfToolError, dev_shelf_service
+from app.services.dev_shelf import (
+    DevShelfGateConflict,
+    DevShelfGatewayConflict,
+    DevShelfProjectConflict,
+    DevShelfRunNotFound,
+    DevShelfToolError,
+    dev_shelf_service,
+)
 from app.services.events import event_bus
 from app.services.store import store
 from app.services.workflow import workflow_service
@@ -54,12 +73,100 @@ def list_dev_shelf_runs() -> DevShelfRunList:
     return DevShelfRunList(items=dev_shelf_service.list_runs())
 
 
+@router.post("/api/dev-shelf/runs", response_model=DevShelfProjectCreateResponse)
+def create_dev_shelf_run(payload: DevShelfProjectCreateRequest) -> DevShelfProjectCreateResponse:
+    try:
+        return dev_shelf_service.create_project(payload)
+    except DevShelfProjectConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DevShelfToolError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.get("/api/dev-shelf/runs/{run_id}", response_model=DevShelfRunDetail)
 def get_dev_shelf_run(run_id: str) -> DevShelfRunDetail:
     try:
         return dev_shelf_service.get_run(run_id)
     except DevShelfRunNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/api/dev-shelf/runs/{run_id}/gateway/latest", response_model=DevShelfGatewaySessionStatus)
+def get_dev_shelf_gateway_latest(run_id: str) -> DevShelfGatewaySessionStatus:
+    try:
+        return dev_shelf_service.get_gateway_status(run_id)
+    except DevShelfRunNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/api/dev-shelf/runs/{run_id}/gateway/events", response_model=DevShelfGatewayRuntimeEvents)
+def get_dev_shelf_gateway_events(
+    run_id: str,
+    session_id: str | None = None,
+    cursor: int = 0,
+    limit: int = 100,
+) -> DevShelfGatewayRuntimeEvents:
+    try:
+        return dev_shelf_service.get_gateway_events(
+            run_id,
+            session_id=session_id,
+            cursor=cursor,
+            limit=limit,
+        )
+    except DevShelfRunNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/api/dev-shelf/runs/{run_id}/gateway/result", response_model=DevShelfGatewayArtifactPayload)
+def get_dev_shelf_gateway_result(
+    run_id: str,
+    session_id: str | None = None,
+) -> DevShelfGatewayArtifactPayload:
+    try:
+        return dev_shelf_service.get_gateway_result(run_id, session_id)
+    except DevShelfRunNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/api/dev-shelf/runs/{run_id}/gateway/candidates", response_model=DevShelfGatewayArtifactPayload)
+def get_dev_shelf_gateway_candidates(
+    run_id: str,
+    session_id: str | None = None,
+) -> DevShelfGatewayArtifactPayload:
+    try:
+        return dev_shelf_service.get_gateway_candidates(run_id, session_id)
+    except DevShelfRunNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/api/dev-shelf/runs/{run_id}/gateway/start", response_model=DevShelfGatewayControlResponse)
+def start_dev_shelf_gateway(
+    run_id: str,
+    payload: DevShelfGatewayStartRequest,
+) -> DevShelfGatewayControlResponse:
+    try:
+        return dev_shelf_service.start_gateway(run_id, payload)
+    except DevShelfRunNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DevShelfGatewayConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DevShelfToolError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/api/dev-shelf/runs/{run_id}/gateway/abort", response_model=DevShelfGatewayControlResponse)
+def abort_dev_shelf_gateway(
+    run_id: str,
+    payload: DevShelfGatewayAbortRequest | None = None,
+) -> DevShelfGatewayControlResponse:
+    try:
+        return dev_shelf_service.abort_gateway(run_id, payload)
+    except DevShelfRunNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DevShelfGatewayConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DevShelfToolError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/api/dev-shelf/runs/{run_id}/human-gates/{gate_id}/decision", response_model=DevShelfRunDetail)

@@ -28,7 +28,8 @@ def test_index_only_exposes_dev_shelf_workbench_ui() -> None:
 
     for dev_shelf_text in [
         "任务列表",
-        "当前任务进度",
+        "创建项目",
+        "当前 run",
         "等待确认",
         "中间产物",
         "产物预览",

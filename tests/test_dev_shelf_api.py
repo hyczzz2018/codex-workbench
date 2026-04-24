@@ -1,10 +1,16 @@
 import json
+import signal
 
 import pytest
 from fastapi import HTTPException
 
 from app.api import routes
-from app.schemas.dev_shelf import DevShelfHumanGateDecisionRequest
+from app.schemas.dev_shelf import (
+    DevShelfGatewayAbortRequest,
+    DevShelfGatewayStartRequest,
+    DevShelfHumanGateDecisionRequest,
+    DevShelfProjectCreateRequest,
+)
 from app.services.dev_shelf import ARTIFACT_PREVIEW_LIMIT, DevShelfReadService
 
 
@@ -75,6 +81,116 @@ def make_pending_gate_run(root, run_id="run_demo_20260415000000"):
         },
     )
     return run_dir
+
+
+def make_gateway_session(run_dir, session_id="session-demo") -> None:
+    session_dir = run_dir / "artifacts" / "pi-agent-gateway" / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    runtime_events_path = session_dir / "runtime-events.jsonl"
+    gateway_result_path = session_dir / "gateway-result.json"
+    candidates_path = session_dir / "gateway-event-candidates.json"
+    runtime_events_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "run_id": run_dir.name,
+                        "gateway_session_id": session_id,
+                        "pi_session_id": "pi-demo",
+                        "stream": "runtime",
+                        "kind": "response",
+                        "sequence": 1,
+                        "raw": {"command": "get_state"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "run_id": run_dir.name,
+                        "gateway_session_id": session_id,
+                        "pi_session_id": "pi-demo",
+                        "stream": "runtime",
+                        "kind": "text",
+                        "sequence": 2,
+                        "raw": {"delta": "hello"},
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    write_json(
+        gateway_result_path,
+        {
+            "schema_version": "1.0",
+            "run_id": run_dir.name,
+            "gateway_session_id": session_id,
+            "summary": {"output_count": 1, "produced_count": 1},
+            "outputs": [],
+        },
+    )
+    write_json(
+        candidates_path,
+        {
+            "schema_version": "1.0",
+            "run_id": run_dir.name,
+            "gateway_session_id": session_id,
+            "summary": {"candidate_count": 1, "skipped_count": 0},
+            "candidates": [{"candidate_id": "candidate-0001-demo"}],
+            "skipped": [],
+        },
+    )
+    write_json(
+        session_dir / "session-metadata.json",
+        {
+            "runtime_event_schema_version": "1.0",
+            "event_count": 2,
+            "status": "completed",
+            "started_at": "2026-04-24T00:00:00Z",
+            "finished_at": "2026-04-24T00:00:10Z",
+            "run_id": run_dir.name,
+            "gateway_session_id": session_id,
+            "provider": "openai-codex",
+            "model": "gpt-5.4",
+            "pi_account": "a",
+            "pi_session_id": "pi-demo",
+            "runtime_events_path": str(runtime_events_path),
+            "gateway_result_json": str(gateway_result_path),
+            "gateway_event_candidates_json": str(candidates_path),
+            "artifact_result_summary": {"output_count": 1, "produced_count": 1},
+            "event_candidate_summary": {"candidate_count": 1, "skipped_count": 0},
+        },
+    )
+
+
+class FakeGatewayProcess:
+    pid = 4321
+
+    def __init__(self) -> None:
+        self.returncode = None
+        self.signals = []
+        self.terminated = False
+        self.killed = False
+
+    def poll(self):
+        return self.returncode
+
+    def send_signal(self, value):
+        self.signals.append(value)
+        self.returncode = 130
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+    def terminate(self):
+        self.terminated = True
+        self.returncode = -15
+
+    def kill(self):
+        self.killed = True
+        self.returncode = -9
 
 
 def test_dev_shelf_run_routes_are_read_only(monkeypatch, tmp_path) -> None:
@@ -174,6 +290,159 @@ def test_dev_shelf_run_detail_exposes_pending_human_gate(monkeypatch, tmp_path) 
     assert len(detail.pending_human_gates) == 1
     assert detail.pending_human_gates[0].gate_id == "spec_approval"
     assert detail.pending_human_gates[0].artifact_id == "spec"
+
+
+def test_dev_shelf_create_run_builds_project_intake(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    service = DevShelfReadService(root, tools_root=root)
+    captured = {}
+
+    def fake_run_tool(script_name, args):
+        intake_path = args[args.index("--intake") + 1]
+        captured["script_name"] = script_name
+        captured["args"] = args
+        captured["intake"] = json.loads(open(intake_path, encoding="utf-8").read())
+        return {
+            "status": "created",
+            "project_name": captured["intake"]["project_name"],
+            "project_slug": captured["intake"]["project_slug"],
+            "run_id": "run_demo_web_20260424000000",
+            "run_dir": str(root / "runs" / "run_demo_web_20260424000000"),
+            "requirement_draft": str(root / "docs" / "demo_web" / "requirement-draft.md"),
+            "next_decision_type": "run_manifest",
+            "next_target": "template.requirement-confirmation-checklist",
+            "message": "created",
+        }
+
+    monkeypatch.setattr(service, "_run_dev_shelf_tool", fake_run_tool)
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+
+    result = routes.create_dev_shelf_run(
+        DevShelfProjectCreateRequest(
+            project_name="Demo Web",
+            requirement="做一个网页工作台",
+            task_type="feature",
+            task_type_status="confirmed",
+            project_context="existing_project",
+            project_path=str(tmp_path / "project"),
+            workspace_confirmed=True,
+        )
+    )
+
+    assert result.status == "created"
+    assert result.run_id == "run_demo_web_20260424000000"
+    assert captured["script_name"] == "dev_shelf_start_project.py"
+    assert captured["intake"]["schema_version"] == "1.0"
+    assert captured["intake"]["project_slug"] == "demo_web"
+    assert captured["intake"]["requirement_draft"] == "做一个网页工作台"
+    assert captured["intake"]["task_type"] == "feature"
+    assert captured["intake"]["project_context"] == "existing_project"
+    assert captured["intake"]["requires_existing_project_analysis"] is True
+    assert captured["intake"]["workspace"]["confirmation_status"] == "confirmed"
+    assert captured["intake"]["workspace"]["allowed_write_paths"] == [str((tmp_path / "project").resolve())]
+
+
+def test_dev_shelf_gateway_routes_expose_status_events_result_and_candidates(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    run_dir = make_pending_gate_run(root)
+    make_gateway_session(run_dir)
+    monkeypatch.setattr(routes, "dev_shelf_service", DevShelfReadService(root))
+
+    status = routes.get_dev_shelf_gateway_latest("run_demo_20260415000000")
+    events = routes.get_dev_shelf_gateway_events(
+        "run_demo_20260415000000",
+        cursor=0,
+        limit=1,
+    )
+    result = routes.get_dev_shelf_gateway_result("run_demo_20260415000000")
+    candidates = routes.get_dev_shelf_gateway_candidates("run_demo_20260415000000")
+
+    assert status.gateway_session_id == "session-demo"
+    assert status.status == "completed"
+    assert status.provider == "openai-codex"
+    assert status.model == "gpt-5.4"
+    assert status.event_count == 2
+    assert status.artifact_result_summary == {"output_count": 1, "produced_count": 1}
+    assert events.event_count == 1
+    assert events.next_cursor == 1
+    assert events.has_more is True
+    assert events.events[0]["kind"] == "response"
+    assert result.payload is not None
+    assert result.payload["summary"]["output_count"] == 1
+    assert candidates.payload is not None
+    assert candidates.payload["summary"]["candidate_count"] == 1
+
+
+def test_dev_shelf_gateway_routes_reject_unknown_session(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    run_dir = make_pending_gate_run(root)
+    make_gateway_session(run_dir)
+    monkeypatch.setattr(routes, "dev_shelf_service", DevShelfReadService(root))
+
+    with pytest.raises(HTTPException) as exc:
+        routes.get_dev_shelf_gateway_events(
+            "run_demo_20260415000000",
+            session_id="session-missing",
+        )
+
+    assert exc.value.status_code == 404
+
+
+def test_dev_shelf_gateway_start_and_abort_routes(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    make_pending_gate_run(root)
+    script_path = root / "scripts" / "dev_shelf_gateway.py"
+    script_path.parent.mkdir(parents=True)
+    script_path.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    service = DevShelfReadService(root, tools_root=root)
+    fake_process = FakeGatewayProcess()
+    captured = {}
+
+    def fake_spawn(command, log_path):
+        captured["command"] = command
+        captured["log_path"] = log_path
+        return fake_process
+
+    monkeypatch.setattr(service, "_spawn_gateway_process", fake_spawn)
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+
+    started = routes.start_dev_shelf_gateway(
+        "run_demo_20260415000000",
+        DevShelfGatewayStartRequest(account="c", model="gpt-5.4", light_mode=True),
+    )
+    aborted = routes.abort_dev_shelf_gateway(
+        "run_demo_20260415000000",
+        DevShelfGatewayAbortRequest(),
+    )
+
+    assert started.status == "started"
+    assert started.pid == 4321
+    assert "--account" in captured["command"]
+    assert "c" in captured["command"]
+    assert "--model" in captured["command"]
+    assert "gpt-5.4" in captured["command"]
+    assert "--pi-arg=--no-tools" in captured["command"]
+    assert "--pi-arg=--no-context-files" in captured["command"]
+    assert str(captured["log_path"]).endswith(".log")
+    assert aborted.status == "aborted"
+    assert signal.SIGINT in fake_process.signals
+
+
+def test_dev_shelf_gateway_start_rejects_running_process(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    make_pending_gate_run(root)
+    script_path = root / "scripts" / "dev_shelf_gateway.py"
+    script_path.parent.mkdir(parents=True)
+    script_path.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    service = DevShelfReadService(root, tools_root=root)
+    monkeypatch.setattr(service, "_spawn_gateway_process", lambda command, log_path: FakeGatewayProcess())
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+
+    routes.start_dev_shelf_gateway("run_demo_20260415000000", DevShelfGatewayStartRequest())
+    with pytest.raises(HTTPException) as exc:
+        routes.start_dev_shelf_gateway("run_demo_20260415000000", DevShelfGatewayStartRequest())
+
+    assert exc.value.status_code == 409
 
 
 def test_dev_shelf_run_detail_rejects_artifact_preview_outside_root(monkeypatch, tmp_path) -> None:

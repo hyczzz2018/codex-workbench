@@ -65,6 +65,50 @@ class DevShelfRunList(APIModel):
     items: list[DevShelfRunSummary]
 
 
+class DevShelfProjectCreateRequest(APIModel):
+    project_name: str = Field(min_length=1)
+    requirement: str = Field(min_length=1)
+    request_summary: str | None = None
+    project_slug: str | None = None
+    task_type: Literal[
+        "new-project",
+        "feature",
+        "bugfix",
+        "refactor",
+        "automation",
+        "analysis",
+        "structured-llm-app",
+        "general",
+    ] = "general"
+    task_type_status: Literal["tentative", "confirmed"] = "tentative"
+    project_context: Literal["new_project", "existing_project", "unknown"] = "new_project"
+    project_path: str | None = None
+    allow_create_project_dir: bool = False
+    workspace_confirmed: bool = False
+
+
+class DevShelfProjectCreateResponse(APIModel):
+    schema_version: str = "1.0"
+    status: str
+    project_name: str
+    project_slug: str
+    run_id: str
+    docs_dir: str | None = None
+    run_dir: str | None = None
+    requirement_draft: str | None = None
+    run_state: str | None = None
+    first_execution_packet_json: str | None = None
+    first_execution_packet_markdown: str | None = None
+    effective_task_type: str | None = None
+    suggested_task_type: str | None = None
+    task_type_status: str | None = None
+    project_context: str | None = None
+    requires_existing_project_analysis: bool = False
+    next_decision_type: str | None = None
+    next_target: str | list[str] | None = None
+    message: str | None = None
+
+
 class DevShelfRunDetail(DevShelfRunSummary):
     task_type_status: str | None = None
     artifacts: list[DevShelfArtifact]
@@ -76,3 +120,87 @@ class DevShelfRunDetail(DevShelfRunSummary):
 class DevShelfHumanGateDecisionRequest(APIModel):
     decision: Literal["approved", "rejected"]
     decision_note: str | None = None
+
+
+class DevShelfGatewaySessionStatus(APIModel):
+    schema_version: str = "1.0"
+    run_id: str | None = None
+    gateway_session_id: str | None = None
+    status: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    provider: str | None = None
+    model: str | None = None
+    thinking: str | None = None
+    pi_account: str | None = None
+    pi_account_dir: str | None = None
+    pi_session_id: str | None = None
+    packet_path: str | None = None
+    packet_target: str | None = None
+    session_dir: str | None = None
+    metadata_path: str | None = None
+    runtime_events_path: str | None = None
+    runtime_event_schema_version: str | None = None
+    event_count: int = 0
+    gateway_result_json: str | None = None
+    gateway_result_markdown: str | None = None
+    gateway_event_candidates_json: str | None = None
+    gateway_event_candidates_markdown: str | None = None
+    artifact_result_summary: dict[str, Any] | None = None
+    event_candidate_summary: dict[str, Any] | None = None
+    abort_requested: bool = False
+    error: str | None = None
+
+
+class DevShelfGatewayRuntimeEvents(APIModel):
+    schema_version: str = "1.0"
+    run_id: str | None = None
+    gateway_session_id: str | None = None
+    session_dir: str | None = None
+    runtime_events_path: str | None = None
+    cursor: int = 0
+    next_cursor: int = 0
+    limit: int = 100
+    has_more: bool = False
+    event_count: int = 0
+    total_seen: int = 0
+    events: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DevShelfGatewayArtifactPayload(APIModel):
+    schema_version: str = "1.0"
+    run_id: str | None = None
+    gateway_session_id: str | None = None
+    path: str | None = None
+    payload: dict[str, Any] | None = None
+
+
+class DevShelfGatewayStartRequest(APIModel):
+    account: str | None = "a"
+    provider: str = "openai-codex"
+    model: str = "gpt-5.4"
+    thinking: str | None = None
+    no_session: bool = True
+    light_mode: bool = False
+    request_timeout_seconds: float = 120.0
+    poll_interval_seconds: float = 0.5
+    post_prompt_grace_seconds: float = 2.0
+
+
+class DevShelfGatewayAbortRequest(APIModel):
+    gateway_session_id: str | None = None
+
+
+class DevShelfGatewayControlResponse(APIModel):
+    schema_version: str = "1.0"
+    run_id: str
+    status: str
+    pid: int | None = None
+    returncode: int | None = None
+    launch_id: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    log_path: str | None = None
+    command: list[str] = Field(default_factory=list)
+    gateway_session_id: str | None = None
+    message: str | None = None
