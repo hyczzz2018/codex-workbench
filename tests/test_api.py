@@ -28,11 +28,14 @@ def test_index_only_exposes_dev_shelf_workbench_ui() -> None:
 
     for dev_shelf_text in [
         "任务列表",
-        "当前任务进度",
-        "等待确认",
-        "中间产物",
+        "创建项目",
+        "当前 run",
+        "下一步建议",
+        "当前流程状态",
+        "流程产物",
+        "协作对话",
         "产物预览",
-        "最新推进建议",
+        "pi-agent 执行详情",
     ]:
         assert dev_shelf_text in html
 
