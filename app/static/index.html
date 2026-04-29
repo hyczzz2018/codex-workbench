@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>dev-shelf 工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260424b" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260428e" />
   </head>
   <body>
     <div class="app-shell">
@@ -20,7 +20,10 @@
         <section class="section-block">
           <div class="section-head compact-head">
             <h2>任务列表</h2>
-            <button id="refresh-runs-button" type="button" class="secondary small-button">刷新</button>
+            <div class="sidebar-actions">
+              <button id="new-run-button" type="button" class="secondary small-button">新建</button>
+              <button id="refresh-runs-button" type="button" class="secondary small-button">刷新</button>
+            </div>
           </div>
           <p id="auto-refresh-status" class="auto-refresh-status">自动刷新每 5 秒一次</p>
           <div id="dev-shelf-run-list" class="run-list">
@@ -30,7 +33,7 @@
       </aside>
 
       <main class="panel panel-main">
-        <section class="section-block project-intake-panel">
+        <section id="project-intake-panel" class="section-block project-intake-panel">
           <div class="section-head">
             <div>
               <p class="eyebrow">Project</p>
@@ -67,7 +70,10 @@
               </label>
               <label>
                 <span>项目路径</span>
-                <input id="project-path-input" autocomplete="off" placeholder="新项目不填则自动使用 /home/hyc/projects/<项目名>" />
+                <div class="path-picker-row">
+                  <input id="project-path-input" autocomplete="off" placeholder="新项目不填则自动使用 /home/hyc/projects/<项目名>" />
+                  <button id="project-path-browse-button" type="button" class="secondary small-button">选择</button>
+                </div>
               </label>
             </div>
             <label class="requirement-input-label">
@@ -91,7 +97,19 @@
               <p class="eyebrow">dev-shelf</p>
               <h2>当前 run</h2>
             </div>
-            <span id="dev-shelf-run-badge" class="badge subtle">未选择</span>
+            <div class="run-head-actions">
+              <button id="dev-shelf-cancel-run-button" type="button" class="secondary small-button">终止任务</button>
+              <span id="dev-shelf-run-badge" class="badge subtle">未选择</span>
+            </div>
+          </div>
+          <p id="dev-shelf-run-action-status" class="run-action-status">-</p>
+          <div id="dev-shelf-progress-strip" class="progress-strip" aria-label="当前流程状态"></div>
+          <div id="dev-shelf-work-status" class="work-status-panel">
+            <strong id="dev-shelf-work-status-title">请选择一个任务</strong>
+            <p id="dev-shelf-work-status-message">创建或选择 run 后，这里会显示当前是否正在处理、等待查看，还是已经完成。</p>
+            <div id="dev-shelf-primary-actions" class="work-status-actions hidden">
+              <button id="dev-shelf-primary-start-button" type="button" class="primary small-button">启动生成</button>
+            </div>
           </div>
           <div class="meta-grid">
             <div class="meta-item meta-item-wide meta-item-run-id">
@@ -111,99 +129,223 @@
               <p id="dev-shelf-packet-target">-</p>
             </div>
           </div>
-          <div class="human-gate-panel">
+          <div id="dev-shelf-execution-workbench" class="execution-workbench hidden">
             <div class="section-head compact-head">
-              <h3>等待确认</h3>
-              <span id="dev-shelf-router-status" class="badge subtle mini-badge">-</span>
+              <div>
+                <h3>实现工作台</h3>
+                <p id="dev-shelf-execution-meta" class="minor-meta">-</p>
+              </div>
+              <div class="execution-head-actions">
+                <button id="dev-shelf-execution-register-button" type="button" class="primary small-button hidden">
+                  登记实现结果
+                </button>
+                <span id="dev-shelf-execution-badge" class="badge subtle mini-badge">-</span>
+              </div>
             </div>
-            <div id="dev-shelf-human-gates" class="human-gate-list">
-              <p class="empty-state">请选择一个 run。</p>
+            <div class="execution-status-grid">
+              <div>
+                <span class="meta-label">项目路径</span>
+                <p id="dev-shelf-execution-workspace">-</p>
+              </div>
+              <div>
+                <span class="meta-label">当前 packet</span>
+                <p id="dev-shelf-execution-packet">-</p>
+              </div>
+              <div>
+                <span class="meta-label">实现结果</span>
+                <p id="dev-shelf-execution-result-status">-</p>
+              </div>
+              <div>
+                <span class="meta-label">最近输出</span>
+                <p id="dev-shelf-execution-last-output">-</p>
+              </div>
+            </div>
+            <div id="dev-shelf-execution-result" class="execution-result markdown-body">
+              请选择一个 run。
             </div>
           </div>
-          <div class="gateway-panel">
+          <section id="dev-shelf-flow-documents" class="flow-documents-panel">
             <div class="section-head compact-head">
-              <h3>执行详情</h3>
-              <span id="dev-shelf-gateway-status" class="badge subtle mini-badge">-</span>
+              <h3>产物与文档</h3>
+              <span id="dev-shelf-flow-documents-count" class="badge subtle mini-badge">-</span>
             </div>
-            <div class="gateway-meta-grid">
+            <div class="dev-shelf-grid">
               <div>
-                <span class="meta-label">Session</span>
-                <p id="dev-shelf-gateway-session">-</p>
+                <h3>流程产物</h3>
+                <div id="dev-shelf-artifacts" class="artifact-list">
+                  <p class="empty-state">请选择一个 run。</p>
+                </div>
               </div>
-              <div>
-                <span class="meta-label">模型</span>
-                <p id="dev-shelf-gateway-model">-</p>
-              </div>
-              <div>
-                <span class="meta-label">事件</span>
-                <p id="dev-shelf-gateway-event-count">-</p>
-              </div>
-              <div>
-                <span class="meta-label">候选事件</span>
-                <p id="dev-shelf-gateway-candidate-count">-</p>
+              <div class="collaboration-panel">
+                <div class="section-head compact-head">
+                  <div>
+                    <h3>协作对话</h3>
+                    <p id="dev-shelf-packet-meta" class="minor-meta">-</p>
+                  </div>
+                  <span id="dev-shelf-collab-status" class="badge subtle mini-badge">-</span>
+                </div>
+                <div id="dev-shelf-collab-chat" class="collab-chat">
+                  <p class="empty-state">请选择一个 run。</p>
+                </div>
+                <form id="dev-shelf-collab-form" class="collab-input-panel">
+                  <textarea id="dev-shelf-collab-input" rows="2" placeholder="例如：这份确认清单里需要补充重新生成产物的入口。"></textarea>
+                  <div class="collab-input-footer">
+                    <p id="dev-shelf-collab-status-text" class="artifact-action-status">-</p>
+                    <div class="collab-actions">
+                      <button id="dev-shelf-collab-abort-button" type="button" class="secondary small-button">中止</button>
+                      <button id="dev-shelf-collab-submit-button" type="submit" class="primary small-button">发送</button>
+                    </div>
+                  </div>
+                </form>
               </div>
             </div>
-            <div class="gateway-control">
-              <label>
-                <span>账号</span>
-                <input id="dev-shelf-gateway-account" value="a" autocomplete="off" />
-              </label>
-              <label>
-                <span>模型</span>
-                <input id="dev-shelf-gateway-model-control" value="gpt-5.4" autocomplete="off" />
-              </label>
-              <label class="checkbox-label">
-                <input id="dev-shelf-gateway-light-mode" type="checkbox" />
-                <span>轻量模式</span>
-              </label>
-              <div class="gateway-actions">
-                <button id="dev-shelf-gateway-start-button" type="button" class="primary small-button">启动</button>
-                <button id="dev-shelf-gateway-abort-button" type="button" class="secondary small-button">中止</button>
-              </div>
-              <p id="dev-shelf-gateway-control-status" class="gateway-control-status">-</p>
-            </div>
-            <div class="gateway-grid">
+          </section>
+          <details id="dev-shelf-gateway-panel" class="gateway-panel">
+            <summary class="gateway-panel-summary">
               <div>
-                <h4>运行事件</h4>
+                <h3>pi-agent 执行详情</h3>
+                <p id="dev-shelf-gateway-summary-line" class="minor-meta">-</p>
+              </div>
+              <div class="gateway-summary-actions">
+                <span id="dev-shelf-gateway-status" class="badge subtle mini-badge">-</span>
+                <span class="gateway-disclosure">展开详情</span>
+              </div>
+            </summary>
+            <div class="gateway-panel-body">
+              <div class="gateway-meta-grid">
+                <div>
+                  <span class="meta-label">Session</span>
+                  <p id="dev-shelf-gateway-session">-</p>
+                </div>
+                <div>
+                  <span class="meta-label">模型</span>
+                  <p id="dev-shelf-gateway-model">-</p>
+                </div>
+                <div>
+                  <span class="meta-label">事件</span>
+                  <p id="dev-shelf-gateway-event-count">-</p>
+                </div>
+                <div>
+                  <span class="meta-label">内部候选</span>
+                  <p id="dev-shelf-gateway-candidate-count">-</p>
+                </div>
+              </div>
+              <div class="model-config-panel">
+                <div class="model-config-head">
+                  <div>
+                    <h4>模型配置</h4>
+                    <p id="dev-shelf-gateway-model-config-status" class="minor-meta">读取可用模型中。</p>
+                  </div>
+                  <button id="dev-shelf-gateway-refresh-models-button" type="button" class="secondary small-button" title="刷新模型列表">刷新</button>
+                </div>
+                <div class="gateway-control">
+                  <label>
+                    <span>Provider</span>
+                    <select id="dev-shelf-gateway-provider-control"></select>
+                  </label>
+                  <label id="dev-shelf-gateway-account-row">
+                    <span>账号</span>
+                    <select id="dev-shelf-gateway-account"></select>
+                  </label>
+                  <label>
+                    <span>模型</span>
+                    <select id="dev-shelf-gateway-model-control"></select>
+                  </label>
+                </div>
+                <div id="dev-shelf-gateway-auth-row" class="gateway-auth-row">
+                  <span class="meta-label">认证</span>
+                  <span id="dev-shelf-gateway-auth-status" class="badge subtle mini-badge">检测中</span>
+                  <span id="dev-shelf-gateway-auth-source" class="minor-meta">读取 pi auth.json。</span>
+                </div>
+              </div>
+              <div class="gateway-control gateway-runtime-control">
+                <label class="checkbox-label">
+                  <input id="dev-shelf-gateway-light-mode" type="checkbox" />
+                  <span>轻量模式</span>
+                </label>
+                <div class="gateway-actions">
+                  <button id="dev-shelf-gateway-start-button" type="button" class="primary small-button">启动</button>
+                  <button id="dev-shelf-gateway-abort-button" type="button" class="secondary small-button">中止</button>
+                </div>
+                <p id="dev-shelf-gateway-control-status" class="gateway-control-status">-</p>
+              </div>
+              <div class="gateway-view-tabs" role="tablist" aria-label="执行详情视图">
+                <button type="button" class="gateway-view-tab active" data-gateway-view="chat">对话</button>
+                <button type="button" class="gateway-view-tab" data-gateway-view="events">事件</button>
+                <button type="button" class="gateway-view-tab" data-gateway-view="summary">摘要</button>
+              </div>
+              <div id="dev-shelf-gateway-chat-panel" class="gateway-view-panel">
+                <div id="dev-shelf-gateway-chat" class="gateway-chat">
+                  <p class="empty-state">请选择一个 run。</p>
+                </div>
+              </div>
+              <div id="dev-shelf-gateway-events-panel" class="gateway-view-panel hidden">
                 <div id="dev-shelf-gateway-events" class="gateway-events">
                   <p class="empty-state">请选择一个 run。</p>
                 </div>
               </div>
-              <div>
-                <h4>结果摘要</h4>
+              <div id="dev-shelf-gateway-summary-panel" class="gateway-view-panel hidden">
                 <div id="dev-shelf-gateway-summary" class="gateway-summary">
                   <p class="empty-state">暂无 Gateway 结果。</p>
                 </div>
               </div>
             </div>
-          </div>
-          <div class="dev-shelf-grid">
-            <div>
-              <h3>中间产物</h3>
-              <div id="dev-shelf-artifacts" class="artifact-list">
-                <p class="empty-state">请选择一个 run。</p>
-              </div>
-            </div>
-            <div>
-              <h3>产物预览</h3>
-              <p id="dev-shelf-artifact-preview-meta" class="minor-meta">-</p>
-              <div id="dev-shelf-artifact-preview" class="artifact-content artifact-preview markdown-body">
-                请选择一个产物。
-              </div>
-              <div class="packet-panel">
-                <h3>最新推进建议</h3>
-                <p id="dev-shelf-packet-meta" class="minor-meta">-</p>
-                <div id="dev-shelf-packet-content" class="artifact-content packet-content markdown-body">
-                  请选择一个 run。
-                </div>
-              </div>
-            </div>
-          </div>
+          </details>
         </section>
 
       </main>
     </div>
 
-    <script src="/static/app.js?v=20260424b" defer></script>
+    <div id="directory-picker-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="directory-picker-title">
+      <section class="directory-picker-dialog">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Workspace</p>
+            <h2 id="directory-picker-title">选择项目目录</h2>
+          </div>
+          <button id="directory-picker-close-button" type="button" class="secondary small-button">关闭</button>
+        </div>
+        <div class="directory-picker-toolbar">
+          <button id="directory-picker-up-button" type="button" class="secondary small-button">上一级</button>
+          <p id="directory-picker-current" class="directory-picker-current">-</p>
+        </div>
+        <div id="directory-picker-list" class="directory-picker-list">
+          <p class="empty-state">正在读取目录。</p>
+        </div>
+        <div class="directory-create-row">
+          <label>
+            <span>新目录名</span>
+            <input id="directory-new-name-input" autocomplete="off" />
+          </label>
+          <button id="directory-new-button" type="button" class="secondary small-button">新建目录</button>
+        </div>
+        <div class="directory-picker-footer">
+          <p id="directory-picker-status" class="directory-picker-status">-</p>
+          <button id="directory-choose-button" type="button" class="primary small-button">选择此目录</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="artifact-preview-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="artifact-preview-title">
+      <section class="artifact-preview-dialog">
+        <div class="section-head compact-head">
+          <div>
+            <p class="eyebrow">流程产物</p>
+            <h2 id="artifact-preview-title">产物预览</h2>
+            <p id="dev-shelf-artifact-preview-meta" class="minor-meta">-</p>
+          </div>
+          <button id="artifact-preview-close-button" type="button" class="secondary small-button">关闭</button>
+        </div>
+        <div id="dev-shelf-artifact-actions" class="artifact-actions hidden">
+          <button id="dev-shelf-artifact-confirm-button" type="button" class="primary small-button">确认产物</button>
+          <p id="dev-shelf-artifact-action-status" class="artifact-action-status">-</p>
+        </div>
+        <div id="dev-shelf-artifact-preview" class="artifact-content artifact-preview markdown-body">
+          请选择一个产物。
+        </div>
+      </section>
+    </div>
+
+    <script src="/static/app.js?v=20260428e" defer></script>
   </body>
 </html>

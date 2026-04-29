@@ -119,6 +119,12 @@ select {
   min-height: calc(100vh - 2.5rem);
 }
 
+.sidebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .section-block {
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(35, 76, 140, 0.08);
@@ -312,6 +318,13 @@ label span,
   gap: 0.75rem;
 }
 
+.path-picker-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.45rem;
+  align-items: center;
+}
+
 .requirement-input-label textarea {
   min-height: 128px;
   line-height: 1.55;
@@ -339,9 +352,194 @@ label span,
   flex: 1;
 }
 
+.run-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.run-action-status {
+  margin: -0.35rem 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.run-action-status.error {
+  color: #ad2f2f;
+  font-weight: 700;
+}
+
+.progress-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.progress-step {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 0.55rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: rgba(16, 35, 63, 0.04);
+}
+
+.progress-step.done {
+  color: var(--accent-strong);
+  border-color: rgba(47, 125, 91, 0.12);
+  background: rgba(47, 125, 91, 0.07);
+}
+
+.progress-step.current {
+  color: var(--text);
+  border-color: rgba(47, 125, 91, 0.34);
+  background: rgba(47, 125, 91, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(47, 125, 91, 0.08);
+}
+
+.progress-step.complete {
+  border-color: rgba(47, 125, 91, 0.42);
+  background: rgba(47, 125, 91, 0.2);
+}
+
+.progress-step.blocked {
+  color: #8d3a2d;
+  border-color: rgba(173, 47, 47, 0.2);
+  background: rgba(173, 47, 47, 0.12);
+}
+
+.progress-marker {
+  display: inline-grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  color: currentColor;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.progress-step.current .progress-marker,
+.progress-step.blocked .progress-marker {
+  background: currentColor;
+  color: #fff;
+}
+
+.progress-step.done .progress-marker,
+.progress-step.complete .progress-marker,
+.progress-step.current.complete .progress-marker {
+  background: var(--accent-strong);
+  color: #fff;
+}
+
+.progress-copy {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.progress-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.progress-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.work-status-panel {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(47, 125, 91, 0.18);
+  border-radius: 8px;
+  background: rgba(246, 252, 248, 0.92);
+}
+
+.work-status-panel strong {
+  font-size: 0.98rem;
+}
+
+.work-status-panel p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.work-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
+}
+
+.execution-workbench {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border-radius: 8px;
+  border: 1px solid rgba(47, 125, 91, 0.18);
+  background: rgba(246, 252, 248, 0.92);
+}
+
+.execution-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.execution-status-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.75fr 0.85fr 1.2fr;
+  gap: 0.7rem;
+}
+
+.execution-status-grid > div {
+  min-width: 0;
+  padding: 0.65rem 0.7rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.execution-status-grid p {
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.execution-result {
+  min-height: 120px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 0.8rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid rgba(35, 76, 140, 0.08);
+  background: rgba(250, 252, 255, 0.94);
+}
+
 .dev-shelf-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 0.48fr) minmax(420px, 1fr);
+  grid-template-columns: minmax(260px, 0.42fr) minmax(560px, 1.35fr);
   gap: 1rem;
   min-height: 0;
 }
@@ -355,6 +553,7 @@ label span,
 }
 
 .human-gate-panel {
+  margin-top: 1rem;
   margin-bottom: 1rem;
   padding: 0.85rem;
   border-radius: 8px;
@@ -386,12 +585,65 @@ label span,
   font-weight: 700;
 }
 
-.gateway-panel {
+.flow-documents-panel {
+  margin-top: 1rem;
   margin-bottom: 1rem;
   padding: 0.85rem;
   border-radius: 8px;
-  border: 1px solid rgba(47, 125, 91, 0.18);
-  background: rgba(246, 252, 248, 0.9);
+  border: 1px solid rgba(35, 76, 140, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.flow-documents-panel .dev-shelf-grid {
+  margin-top: 0.75rem;
+}
+
+.gateway-panel {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(47, 125, 91, 0.16);
+  background: rgba(246, 252, 248, 0.78);
+}
+
+.gateway-panel-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3.4rem;
+  padding: 0.8rem 0.9rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.gateway-panel-summary::-webkit-details-marker {
+  display: none;
+}
+
+.gateway-panel-summary h3 {
+  margin: 0 0 0.18rem;
+}
+
+.gateway-summary-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 0 0 auto;
+}
+
+.gateway-disclosure {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.gateway-panel[open] .gateway-disclosure {
+  color: var(--accent-strong);
+}
+
+.gateway-panel-body {
+  padding: 0 0.85rem 0.85rem;
 }
 
 .gateway-panel h4 {
@@ -414,9 +666,42 @@ label span,
   line-height: 1.45;
 }
 
+.model-config-panel {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 0.95rem;
+  padding: 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(47, 125, 91, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.model-config-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.model-config-head h4 {
+  margin-bottom: 0.2rem;
+}
+
+.model-config-panel .gateway-control {
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  grid-template-columns: minmax(160px, 0.75fr) minmax(120px, 0.55fr) minmax(220px, 1fr);
+}
+
+.gateway-runtime-control {
+  grid-template-columns: max-content max-content minmax(180px, 1fr);
+}
+
 .gateway-control {
   display: grid;
-  grid-template-columns: minmax(120px, 0.35fr) minmax(160px, 0.45fr) max-content max-content minmax(180px, 1fr);
+  grid-template-columns: minmax(100px, 0.8fr) minmax(110px, 0.8fr) minmax(160px, 1fr) max-content max-content minmax(180px, 1fr);
   gap: 0.7rem;
   align-items: end;
   margin-bottom: 0.95rem;
@@ -426,11 +711,47 @@ label span,
   background: rgba(255, 255, 255, 0.72);
 }
 
+.model-input-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.model-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-input-row button {
+  flex-shrink: 0;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.75rem;
+}
+
 .gateway-control input {
   min-height: 2.35rem;
   padding: 0.5rem 0.65rem;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.82rem;
+}
+
+.gateway-control select {
+  min-height: 2.35rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+}
+
+.gateway-auth-row {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(220px, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  min-height: 2.35rem;
 }
 
 .checkbox-label {
@@ -461,6 +782,94 @@ label span,
 .gateway-control-status.error {
   color: #ad2f2f;
   font-weight: 700;
+}
+
+.gateway-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.85rem 0 0.65rem;
+}
+
+.gateway-view-tab {
+  min-width: 5.5rem;
+  padding: 0.48rem 0.75rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+}
+
+.gateway-view-tab.active {
+  border-color: rgba(47, 125, 91, 0.28);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.gateway-view-panel {
+  min-height: 180px;
+}
+
+.gateway-chat {
+  display: grid;
+  gap: 0.65rem;
+  max-height: 460px;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.gateway-chat-message {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.72rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(35, 76, 140, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.gateway-chat-message-assistant {
+  border-color: rgba(47, 125, 91, 0.2);
+  background: rgba(248, 252, 249, 0.92);
+}
+
+.gateway-chat-message-tool,
+.gateway-chat-message-system {
+  background: rgba(248, 251, 255, 0.86);
+}
+
+.gateway-chat-message-error {
+  border-color: rgba(173, 47, 47, 0.22);
+  background: rgba(255, 247, 247, 0.9);
+}
+
+.gateway-chat-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.gateway-chat-body {
+  color: var(--text);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.gateway-chat-body.markdown-body {
+  white-space: normal;
+}
+
+.gateway-chat-body p,
+.gateway-chat-body ul,
+.gateway-chat-body pre {
+  margin-top: 0;
+}
+
+.gateway-chat-body h1,
+.gateway-chat-body h2,
+.gateway-chat-body h3 {
+  font-size: 1rem;
+  line-height: 1.35;
 }
 
 .gateway-grid {
@@ -501,6 +910,24 @@ label span,
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.78rem;
   line-height: 1.45;
+}
+
+.gateway-event-raw {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.gateway-event-raw summary {
+  cursor: pointer;
+}
+
+.gateway-event-raw pre {
+  margin: 0.35rem 0 0;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: "IBM Plex Mono", monospace;
 }
 
 .gateway-summary {
@@ -547,11 +974,22 @@ label span,
   background: rgba(248, 251, 255, 0.88);
   color: var(--text);
   text-align: left;
+  cursor: pointer;
 }
 
 .artifact-list-item.active {
   border-color: rgba(47, 125, 91, 0.28);
   background: rgba(47, 125, 91, 0.1);
+}
+
+.artifact-list-item.reviewable {
+  border-color: rgba(210, 136, 31, 0.24);
+  background: rgba(255, 250, 241, 0.9);
+}
+
+.artifact-list-item.reviewable.active {
+  border-color: rgba(47, 125, 91, 0.32);
+  background: rgba(47, 125, 91, 0.12);
 }
 
 .artifact-list-head {
@@ -587,18 +1025,207 @@ label span,
   border: 1px solid rgba(35, 76, 140, 0.08);
 }
 
+.artifact-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.artifact-action-status {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.artifact-action-status.error {
+  color: #ad2f2f;
+  font-weight: 700;
+}
+
 .packet-content {
   min-height: 190px;
   max-height: 320px;
 }
 
 .artifact-preview {
-  min-height: 300px;
-  max-height: 480px;
+  min-height: 0;
+  max-height: none;
 }
 
-.packet-panel {
-  margin-top: 1rem;
+.collaboration-panel {
+  display: grid;
+  grid-template-rows: auto minmax(220px, auto) auto;
+  align-self: start;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(31, 51, 43, 0.12);
+  background: #fbfcfb;
+  box-shadow: 0 18px 46px rgba(24, 42, 33, 0.08);
+}
+
+.collaboration-panel > .section-head {
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid rgba(31, 51, 43, 0.1);
+  background: linear-gradient(180deg, #ffffff, #f7faf8);
+}
+
+.collab-chat {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  min-height: 220px;
+  max-height: 460px;
+  overflow: auto;
+  padding: 1.25rem 1.25rem 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(247, 250, 248, 0.94)),
+    repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(31, 51, 43, 0.025) 32px);
+}
+
+.collab-message {
+  display: grid;
+  gap: 0.35rem;
+  width: fit-content;
+  max-width: min(76%, 760px);
+  padding: 0.78rem 0.92rem;
+  border-radius: 8px;
+  border: 1px solid rgba(31, 51, 43, 0.08);
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(24, 42, 33, 0.07);
+}
+
+.collab-message strong {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.collab-message-body {
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.collab-message-body > :first-child {
+  margin-top: 0;
+}
+
+.collab-message.is-typing .collab-message-body {
+  white-space: pre-wrap;
+}
+
+.collab-message.is-typing .collab-message-body::after {
+  content: "";
+  display: inline-block;
+  width: 0.45rem;
+  height: 1em;
+  margin-left: 0.1rem;
+  vertical-align: -0.15em;
+  border-right: 2px solid rgba(47, 125, 91, 0.72);
+  animation: collab-caret-blink 1s steps(1, end) infinite;
+}
+
+@keyframes collab-caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.collab-message-body > :last-child {
+  margin-bottom: 0;
+}
+
+.collab-message-system {
+  width: 100%;
+  max-width: 100%;
+  border-color: rgba(31, 51, 43, 0.08);
+  box-shadow: none;
+  background: rgba(244, 247, 245, 0.88);
+}
+
+.collab-message-assistant {
+  justify-self: start;
+  border-color: rgba(31, 51, 43, 0.1);
+  background: #ffffff;
+}
+
+.collab-message-user {
+  justify-self: end;
+  color: #ffffff;
+  border-color: rgba(47, 104, 78, 0.52);
+  background: #2f684e;
+  box-shadow: 0 12px 28px rgba(47, 104, 78, 0.18);
+}
+
+.collab-message-user strong,
+.collab-message-user .collab-message-body {
+  color: #ffffff;
+}
+
+.collab-message-error {
+  border-color: rgba(173, 47, 47, 0.22);
+  background: rgba(255, 247, 247, 0.94);
+}
+
+.collab-input-panel {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 1rem 1rem;
+  padding: 0.78rem;
+  border-radius: 8px;
+  border: 1px solid rgba(31, 51, 43, 0.16);
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(24, 42, 33, 0.11);
+}
+
+.collab-input-panel textarea {
+  width: 100%;
+  min-height: 3.35rem;
+  max-height: 13.75rem;
+  padding: 0.65rem 0.7rem;
+  resize: none;
+  overflow-y: auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.collab-input-panel textarea:focus {
+  outline: 0;
+  box-shadow: none;
+}
+
+.collab-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  min-height: 2.6rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(31, 51, 43, 0.08);
+}
+
+.collab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex: 0 0 auto;
+}
+
+.collab-actions .small-button {
+  min-width: 4.6rem;
+  min-height: 2.15rem;
 }
 
 .markdown-body {
@@ -607,6 +1234,26 @@ label span,
 
 .markdown-body > :first-child {
   margin-top: 0;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.55rem 0;
+  font-size: 0.92rem;
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(31, 51, 43, 0.12);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-body th {
+  background: rgba(244, 247, 245, 0.92);
+  font-weight: 700;
 }
 
 .markdown-body > :last-child {
@@ -674,6 +1321,111 @@ label span,
   line-height: 1.55;
 }
 
+.hidden {
+  display: none !important;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(14, 28, 22, 0.36);
+}
+
+.directory-picker-dialog,
+.artifact-preview-dialog {
+  width: min(760px, 100%);
+  max-height: min(720px, calc(100vh - 2.5rem));
+  display: grid;
+  grid-template-rows: auto auto minmax(180px, 1fr) auto auto;
+  gap: 0.85rem;
+  overflow: hidden;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 22px 54px rgba(18, 34, 25, 0.2);
+}
+
+.artifact-preview-dialog {
+  width: min(1180px, calc(100vw - 2.5rem));
+  height: min(860px, calc(100vh - 2.5rem));
+  max-height: calc(100vh - 2.5rem);
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.artifact-preview-dialog .artifact-content {
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+}
+
+.directory-picker-toolbar,
+.directory-picker-footer {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.directory-picker-footer {
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.directory-picker-current,
+.directory-picker-status {
+  min-width: 0;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.directory-picker-status.error {
+  color: #ad2f2f;
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.directory-picker-list {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+  overflow: auto;
+  min-height: 180px;
+  padding-right: 0.2rem;
+}
+
+.directory-item {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(35, 76, 140, 0.08);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(248, 251, 255, 0.92);
+  text-align: left;
+}
+
+.directory-item span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.directory-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.7rem;
+  align-items: end;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -683,11 +1435,19 @@ label span,
     grid-template-columns: 1fr;
   }
 
+  .progress-strip {
+    grid-template-columns: 1fr;
+  }
+
   .project-fields,
   .project-create-footer,
+  .execution-status-grid,
   .gateway-meta-grid,
   .gateway-control,
-  .gateway-grid {
+  .gateway-grid,
+  .directory-picker-toolbar,
+  .directory-picker-footer,
+  .directory-create-row {
     grid-template-columns: 1fr;
   }
 }

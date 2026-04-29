@@ -1,15 +1,16 @@
 # dev-shelf Workbench
 
-dev-shelf Workbench 是一个本地 FastAPI 网页应用，用来从需求创建 dev-shelf run，观察中间产物，并控制单次 pi-agent Gateway 运行。
+dev-shelf Workbench 是一个本地 FastAPI 网页应用，用来从需求创建 dev-shelf run、查看和确认中间产物，并以接近 CLI 协作的方式控制单次 pi-agent Gateway 运行。
 
 当前页面定位是 **单人版任务工作台**：
 
 - 网页可以输入需求并创建 dev-shelf run。
-- 网页负责查看 dev-shelf 任务进度、待确认项、最新建议和中间产物。
-- Gateway / pi-agent 放在执行详情中，用于执行阶段。
-- 网页可以启动或中止一次 pi-agent Gateway。
-- 网页端暂不提供 apply Gateway candidate。
-- 网页端暂不提供 approve / reject / 确认 / 驳回等流程推进入口。
+- 网页负责查看 dev-shelf 任务进度、下一步建议、待确认项和中间产物。
+- 左侧产物列表可直接预览原文，右侧协作对话显示 Workbench、用户和 pi-agent 的关键交流。
+- Gateway / pi-agent 可以在任意可运行 packet 上启动或中止，运行事件通过 SSE 增量同步到页面。
+- 待确认产物支持确认、提交修改意见并重新生成当前产物。
+- Gateway candidate 可以从网页确认或要求修改；execution 阶段结果可以登记为实现结果。
+- 模型配置面板支持 provider、账号和模型下拉选择，配置写入本地 `.workbench/model-config.json`。
 
 ## 功能范围
 
@@ -17,27 +18,33 @@ dev-shelf Workbench 是一个本地 FastAPI 网页应用，用来从需求创建
 
 - dev-shelf run 列表。
 - 从网页创建 run，调用 dev-shelf 现有 `scripts/dev_shelf_start_project.py`。
+- 项目目录浏览和目录创建。
+- 任务终止。
 - 当前 run 进度展示。
-- 待确认项只读展示。
-- 中间产物列表。
-- 安全的文本产物预览。
+- 待确认项展示、确认和修改意见提交。
+- 中间产物列表，点击后弹窗预览原文。
+- 安全的文本产物预览和 Gateway candidate 预览。
 - 最新 execution packet 摘要。
 - 最新 Gateway / pi-agent session 状态。
 - Gateway runtime events 按 cursor 轮询展示。
+- Gateway stream 通过 SSE 增量推送。
+- Gateway transcript 聚合成协作聊天流，过滤工具原文，只保留工具摘要。
+- assistant 文本支持逐字显示和 Markdown 渲染。
 - Gateway result / event candidates 摘要。
 - 网页启动 / 中止单次 Gateway。
+- Gateway candidate confirm / revise。
+- enter_stage packet 的网页继续推进。
+- execution Gateway 完成后登记实现结果。
+- Provider / account / model 配置。
 - 中文状态映射。
 - 5 秒轮询自动刷新。
 
 当前刻意不做：
 
-- WebSocket / SSE 实时通道。
-- 网页驱动终端 agent。
-- 网页端人工确认或驳回。
-- 网页端 apply Gateway candidate。
 - 多 Gateway session 调度。
-- 旧聊天框或旧 session 工作流 UI。
-- 数据库持久化。
+- 多用户、权限系统或远程部署安全模型。
+- 数据库持久化；状态仍以 dev-shelf 文件系统为准。
+- 完整 IDE 能力；真实文件修改仍由 pi-agent / coding agent 完成。
 
 ## 项目结构
 
@@ -94,18 +101,31 @@ DEV_SHELF_TOOLS_ROOT=/path/to/dev-shelf \
 
 - `POST /api/dev-shelf/runs`
 - `GET /api/dev-shelf/runs`
+- `GET /api/dev-shelf/directories`
+- `POST /api/dev-shelf/directories`
 - `GET /api/dev-shelf/runs/{run_id}`
+- `POST /api/dev-shelf/runs/{run_id}/cancel`
+- `POST /api/dev-shelf/runs/{run_id}/workflow/continue`
 - `GET /api/dev-shelf/runs/{run_id}/gateway/latest`
 - `GET /api/dev-shelf/runs/{run_id}/gateway/events?cursor=0&limit=100`
+- `GET /api/dev-shelf/runs/{run_id}/gateway/stream`
+- `GET /api/dev-shelf/runs/{run_id}/gateway/transcript`
 - `GET /api/dev-shelf/runs/{run_id}/gateway/result`
 - `GET /api/dev-shelf/runs/{run_id}/gateway/candidates`
+- `GET /api/dev-shelf/models`
+- `GET /api/dev-shelf/model-config`
+- `POST /api/dev-shelf/model-config`
 
 Gateway 控制接口：
 
 - `POST /api/dev-shelf/runs/{run_id}/gateway/start`
 - `POST /api/dev-shelf/runs/{run_id}/gateway/abort`
+- `POST /api/dev-shelf/runs/{run_id}/gateway/register-result`
+- `POST /api/dev-shelf/runs/{run_id}/gateway/candidates/{candidate_id}/confirm`
+- `POST /api/dev-shelf/runs/{run_id}/gateway/candidates/{candidate_id}/revise`
+- `POST /api/dev-shelf/runs/{run_id}/artifacts/{artifact_id}/revise`
 
-`start` 第一版是本地后台进程壳，会调用 dev-shelf 现有 `scripts/dev_shelf_gateway.py`。同一个 Workbench 进程内，一个 run 同时只允许一个 Gateway 进程。
+`start` 会启动本地后台进程并调用 dev-shelf 现有 `scripts/dev_shelf_gateway.py`。同一个 Workbench 进程内，一个 run 同时只允许一个 Gateway 进程。
 
 兼容保留接口：
 
@@ -114,6 +134,15 @@ Gateway 控制接口：
 - `POST /api/dev-shelf/runs/{run_id}/human-gates/{gate_id}/decision`
 
 后端确认写回接口暂时保留用于兼容；当前网页不会调用它。
+
+## 模型配置
+
+模型配置面板从本地 pi 配置读取可用信息：
+
+- OpenAI Codex provider 需要选择本地 pi 账号，例如 `default`、`a`、`b`。
+- DeepSeek provider 不显示账号，只显示模型列表；API key 由 pi 自己读取 `~/.pi/agent/auth.json`。
+- Workbench 只保存 provider、account 和 model 选择，不保存 API key。
+- 轻量模式会在启动 Gateway 时追加 `--no-tools` 和 `--no-context-files`，用于快速验证连接；真实开发通常不要开启。
 
 ## 创建 run
 
@@ -151,9 +180,10 @@ artifact 预览由后端读取 dev-shelf 文件系统，当前规则：
 - 最新 execution packet。
 - 最新 Gateway session。
 - Gateway runtime events 增量页。
+- Gateway transcript。
 - Gateway result / candidates 摘要。
 
-自动刷新失败时会保留当前已展示数据，等待下一轮恢复。
+Gateway 运行中会优先使用 SSE stream 获取实时事件；自动刷新作为状态和产物兜底。页面会尽量保留用户阅读位置，避免刷新时强制滚到聊天底部。
 
 ## 测试
 

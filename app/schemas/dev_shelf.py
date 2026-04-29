@@ -65,6 +65,27 @@ class DevShelfRunList(APIModel):
     items: list[DevShelfRunSummary]
 
 
+class DevShelfDirectoryEntry(APIModel):
+    name: str
+    path: str
+
+
+class DevShelfDirectoryList(APIModel):
+    root_path: str
+    current_path: str
+    parent_path: str | None = None
+    items: list[DevShelfDirectoryEntry] = Field(default_factory=list)
+
+
+class DevShelfDirectoryCreateRequest(APIModel):
+    parent_path: str | None = None
+    name: str = Field(min_length=1)
+
+
+class DevShelfDirectoryCreateResponse(APIModel):
+    path: str
+
+
 class DevShelfProjectCreateRequest(APIModel):
     project_name: str = Field(min_length=1)
     requirement: str = Field(min_length=1)
@@ -122,6 +143,29 @@ class DevShelfHumanGateDecisionRequest(APIModel):
     decision_note: str | None = None
 
 
+class DevShelfArtifactReviseRequest(APIModel):
+    feedback: str = Field(min_length=1)
+
+
+class DevShelfRunCancelRequest(APIModel):
+    note: str | None = None
+
+
+class DevShelfGatewayCandidateConfirmRequest(APIModel):
+    session_id: str | None = None
+    decision_note: str | None = None
+
+
+class DevShelfGatewayCandidateReviseRequest(APIModel):
+    session_id: str | None = None
+    feedback: str = Field(min_length=1)
+
+
+class DevShelfGatewayRegisterResultRequest(APIModel):
+    session_id: str | None = None
+    note: str | None = None
+
+
 class DevShelfGatewaySessionStatus(APIModel):
     schema_version: str = "1.0"
     run_id: str | None = None
@@ -167,6 +211,26 @@ class DevShelfGatewayRuntimeEvents(APIModel):
     events: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class DevShelfGatewayTranscriptMessage(APIModel):
+    role: Literal["assistant", "tool", "system", "error"]
+    kind: str
+    text: str
+    sequence_start: int | None = None
+    sequence_end: int | None = None
+    ts: str | None = None
+
+
+class DevShelfGatewayTranscript(APIModel):
+    schema_version: str = "1.0"
+    run_id: str | None = None
+    gateway_session_id: str | None = None
+    session_dir: str | None = None
+    runtime_events_path: str | None = None
+    message_count: int = 0
+    event_count: int = 0
+    messages: list[DevShelfGatewayTranscriptMessage] = Field(default_factory=list)
+
+
 class DevShelfGatewayArtifactPayload(APIModel):
     schema_version: str = "1.0"
     run_id: str | None = None
@@ -204,3 +268,40 @@ class DevShelfGatewayControlResponse(APIModel):
     command: list[str] = Field(default_factory=list)
     gateway_session_id: str | None = None
     message: str | None = None
+
+
+class DevShelfModelItem(APIModel):
+    provider: str
+    model: str
+    context_window: str = "-"
+    max_output: str = "-"
+    thinking: str = "-"
+    images: str = "-"
+
+
+class DevShelfModelList(APIModel):
+    models: list[DevShelfModelItem] = Field(default_factory=list)
+
+
+class DevShelfModelProvider(APIModel):
+    provider: str
+    label: str
+    requires_account: bool = False
+    auth_configured: bool = False
+    auth_source: str | None = None
+    default_model: str | None = None
+    default_account: str | None = None
+    accounts: list[str] = Field(default_factory=list)
+
+
+class DevShelfModelConfig(APIModel):
+    provider: str = "openai-codex"
+    model: str = "gpt-5.4"
+    account: str | None = "a"
+    providers: list[DevShelfModelProvider] = Field(default_factory=list)
+
+
+class DevShelfModelConfigUpdateRequest(APIModel):
+    provider: str = "openai-codex"
+    model: str | None = None
+    account: str | None = None
