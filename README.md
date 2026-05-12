@@ -223,6 +223,6 @@ node --check app/static/app.js
 
 ### 工作台视图预览
 
-![image-20260512094139846](assets\image-20260512094139846.png)
+![image-20260512094139846](assets/image-20260512094139846.png)
 
-![image-20260512094303725](assets\image-20260512094303725.png)
+![image-20260512094303725](assets/image-20260512094303725.png)
