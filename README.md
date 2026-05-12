@@ -220,3 +220,8 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider \
 ```bash
 node --check app/static/app.js
 ```
+
+### 工作台视图预览
+
+![workbench](.\codex-workbench\assets\workbench.png)
+
