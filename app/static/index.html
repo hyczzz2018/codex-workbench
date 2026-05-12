@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>dev-shelf 工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260428e" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260430c" />
   </head>
   <body>
     <div class="app-shell">
@@ -26,6 +26,7 @@
             </div>
           </div>
           <p id="auto-refresh-status" class="auto-refresh-status">自动刷新每 5 秒一次</p>
+          <p id="backend-health-status" class="backend-health-status">后端连接检测中。</p>
           <div id="dev-shelf-run-list" class="run-list">
             <p class="empty-state">正在读取任务。</p>
           </div>
@@ -137,7 +138,7 @@
               </div>
               <div class="execution-head-actions">
                 <button id="dev-shelf-execution-register-button" type="button" class="primary small-button hidden">
-                  登记实现结果
+                  登记执行结果
                 </button>
                 <span id="dev-shelf-execution-badge" class="badge subtle mini-badge">-</span>
               </div>
@@ -187,6 +188,7 @@
                 <div id="dev-shelf-collab-chat" class="collab-chat">
                   <p class="empty-state">请选择一个 run。</p>
                 </div>
+                <button id="dev-shelf-collab-new-message-button" type="button" class="secondary small-button collab-new-message-button hidden">有新消息</button>
                 <form id="dev-shelf-collab-form" class="collab-input-panel">
                   <textarea id="dev-shelf-collab-input" rows="2" placeholder="例如：这份确认清单里需要补充重新生成产物的入口。"></textarea>
                   <div class="collab-input-footer">
@@ -330,15 +332,25 @@
       <section class="artifact-preview-dialog">
         <div class="section-head compact-head">
           <div>
-            <p class="eyebrow">流程产物</p>
-            <h2 id="artifact-preview-title">产物预览</h2>
+            <p class="eyebrow">Artifact Review</p>
+            <h2 id="artifact-preview-title">产物预览与审阅</h2>
             <p id="dev-shelf-artifact-preview-meta" class="minor-meta">-</p>
           </div>
           <button id="artifact-preview-close-button" type="button" class="secondary small-button">关闭</button>
         </div>
         <div id="dev-shelf-artifact-actions" class="artifact-actions hidden">
-          <button id="dev-shelf-artifact-confirm-button" type="button" class="primary small-button">确认产物</button>
-          <p id="dev-shelf-artifact-action-status" class="artifact-action-status">-</p>
+          <div class="artifact-action-buttons">
+            <button id="dev-shelf-artifact-confirm-button" type="button" class="primary small-button">确认产物</button>
+            <button id="dev-shelf-artifact-revise-toggle-button" type="button" class="secondary small-button">提出修改意见</button>
+          </div>
+          <label id="dev-shelf-artifact-feedback-row" class="artifact-feedback-row hidden">
+            <span>修改意见</span>
+            <textarea id="dev-shelf-artifact-feedback-input" rows="3" placeholder="针对这份产物写下需要修改的内容。"></textarea>
+          </label>
+          <div class="artifact-action-footer">
+            <button id="dev-shelf-artifact-revise-submit-button" type="button" class="secondary small-button">提交修改意见并重新生成</button>
+            <p id="dev-shelf-artifact-action-status" class="artifact-action-status">-</p>
+          </div>
         </div>
         <div id="dev-shelf-artifact-preview" class="artifact-content artifact-preview markdown-body">
           请选择一个产物。
@@ -346,6 +358,6 @@
       </section>
     </div>
 
-    <script src="/static/app.js?v=20260428e" defer></script>
+    <script type="module" src="/static/js/main.js?v=20260511c"></script>
   </body>
 </html>

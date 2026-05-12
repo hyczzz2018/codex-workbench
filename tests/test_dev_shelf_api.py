@@ -165,6 +165,7 @@ def make_gateway_session(
     packet_path=None,
     packet_target="template.requirement-confirmation-checklist",
     status="completed",
+    produced_count=1,
 ) -> None:
     root = run_dir.parent.parent
     session_dir = run_dir / "artifacts" / "pi-agent-gateway" / session_id
@@ -238,7 +239,7 @@ def make_gateway_session(
             "schema_version": "1.0",
             "run_id": run_dir.name,
             "gateway_session_id": session_id,
-            "summary": {"output_count": 1, "produced_count": 1},
+            "summary": {"output_count": 1, "produced_count": produced_count},
             "outputs": [],
         },
     )
@@ -296,7 +297,7 @@ def make_gateway_session(
             "runtime_events_path": str(runtime_events_path),
             "gateway_result_json": str(gateway_result_path),
             "gateway_event_candidates_json": str(candidates_path),
-            "artifact_result_summary": {"output_count": 1, "produced_count": 1},
+            "artifact_result_summary": {"output_count": 1, "produced_count": produced_count},
             "event_candidate_summary": {"candidate_count": 1, "skipped_count": 0},
         },
     )
@@ -316,7 +317,17 @@ def make_execution_registerable_run(root, run_id="run_demo_20260425000000"):
     run_dir = root / "runs" / run_id
     project_path = root / "project"
     implementation_path = root / "docs" / "demo" / "implementation-result.md"
+    quick_deploy_path = root / "docs" / "demo" / "quick-deploy-guide.md"
     project_path.mkdir(parents=True, exist_ok=True)
+    write_json(
+        project_path / "package.json",
+        {
+            "scripts": {
+                "dev": "vite --host 127.0.0.1 --port 4173",
+                "build": "vite build",
+            }
+        },
+    )
     write_json(
         run_dir / "run-state.json",
         {
@@ -345,6 +356,12 @@ def make_execution_registerable_run(root, run_id="run_demo_20260425000000"):
                     "title": "实现结果",
                     "status_on_produce": "done",
                     "path": str(implementation_path),
+                },
+                {
+                    "artifact_id": "quick_deploy_guide",
+                    "title": "快速部署文档",
+                    "status_on_produce": "done",
+                    "path": str(quick_deploy_path),
                 }
             ],
             "workspace": {
@@ -392,6 +409,24 @@ def make_execution_registerable_run(root, run_id="run_demo_20260425000000"):
                         "raw": {"delta": "Implemented the static page."},
                     }
                 ),
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "run_id": run_id,
+                        "gateway_session_id": "session-demo",
+                        "stream": "runtime",
+                        "kind": "text",
+                        "sequence": 3,
+                        "raw": {
+                            "type": "service_started",
+                            "service_name": "前端服务",
+                            "url": "http://127.0.0.1:4173/",
+                            "port": 4173,
+                            "command": "npm run dev",
+                            "cwd": str(project_path),
+                        },
+                    }
+                ),
             ]
         )
         + "\n",
@@ -422,7 +457,7 @@ def make_execution_registerable_run(root, run_id="run_demo_20260425000000"):
         session_dir / "session-metadata.json",
         {
             "runtime_event_schema_version": "1.0",
-            "event_count": 2,
+            "event_count": 3,
             "status": "completed",
             "started_at": "2026-04-25T00:00:00Z",
             "finished_at": "2026-04-25T00:00:10Z",
@@ -435,7 +470,7 @@ def make_execution_registerable_run(root, run_id="run_demo_20260425000000"):
             "runtime_events_path": str(runtime_events_path),
             "gateway_result_json": str(session_dir / "gateway-result.json"),
             "gateway_event_candidates_json": str(session_dir / "gateway-event-candidates.json"),
-            "artifact_result_summary": {"output_count": 1, "produced_count": 0},
+            "artifact_result_summary": {"output_count": 2, "produced_count": 0},
             "event_candidate_summary": {"candidate_count": 0, "skipped_count": 0},
         },
     )
@@ -491,6 +526,21 @@ def test_dev_shelf_run_routes_are_read_only(monkeypatch, tmp_path) -> None:
                     "path": "docs/demo/spec.md",
                     "produced_by": "template.spec",
                     "updated_at": "2026-04-13T01:00:00Z",
+                    "current_revision_id": "rev_0002",
+                    "revisions": [
+                        {"revision_id": "rev_0001", "status": "rejected", "created_at": "2026-04-13T00:30:00Z"},
+                        {"revision_id": "rev_0002", "status": "approved", "created_at": "2026-04-13T01:00:00Z"},
+                    ],
+                    "feedback_records": [
+                        {
+                            "feedback_id": "fb_0001",
+                            "target_revision_id": "rev_0001",
+                            "path": "runs/run_demo_20260413000000/artifacts/workbench-feedback/spec.md",
+                            "status": "applied",
+                            "created_at": "2026-04-13T00:40:00Z",
+                            "created_by": "human",
+                        }
+                    ],
                 }
             ],
             "history": [
@@ -533,6 +583,10 @@ def test_dev_shelf_run_routes_are_read_only(monkeypatch, tmp_path) -> None:
     assert detail.artifacts[0].content_format == "markdown"
     assert detail.artifacts[0].content_truncated is False
     assert detail.artifacts[0].content_error is None
+    assert detail.artifacts[0].current_revision_id == "rev_0002"
+    assert detail.artifacts[0].revision_count == 2
+    assert detail.artifacts[0].feedback_count == 1
+    assert detail.artifacts[0].latest_feedback_path == "runs/run_demo_20260413000000/artifacts/workbench-feedback/spec.md"
     assert detail.pending_human_gates == []
     assert detail.router is not None
     assert detail.router.decision_type == "run_manifest"
@@ -567,6 +621,9 @@ def test_dev_shelf_run_detail_exposes_pending_human_gate(monkeypatch, tmp_path) 
     assert len(detail.pending_human_gates) == 1
     assert detail.pending_human_gates[0].gate_id == "spec_approval"
     assert detail.pending_human_gates[0].artifact_id == "spec"
+    assert detail.action_policy is not None
+    assert detail.action_policy["actions"]["can_start_gateway"]["allowed"] is False
+    assert "待人工确认" in detail.action_policy["actions"]["can_start_gateway"]["reason"]
 
 
 def test_dev_shelf_workflow_continue_applies_enter_stage_packet(monkeypatch, tmp_path) -> None:
@@ -726,27 +783,39 @@ def test_dev_shelf_create_run_defaults_new_project_workspace_path(monkeypatch, t
     assert captured["intake"]["workspace"]["allowed_write_paths"] == [default_path]
 
 
-def test_dev_shelf_create_run_rejects_duplicate_project_slug(monkeypatch, tmp_path) -> None:
+def test_dev_shelf_create_run_allows_duplicate_project_slug(monkeypatch, tmp_path) -> None:
     root = tmp_path / "dev-shelf"
     service = DevShelfReadService(root, tools_root=root)
     (root / "docs" / "hello_world").mkdir(parents=True)
-    monkeypatch.setattr(
-        service,
-        "_run_dev_shelf_tool",
-        lambda script_name, args: pytest.fail("duplicate project must not call dev-shelf start script"),
-    )
+    captured = {}
+
+    def fake_run_tool(script_name, args):
+        intake_path = args[args.index("--intake") + 1]
+        captured["script_name"] = script_name
+        captured["intake"] = json.loads(open(intake_path, encoding="utf-8").read())
+        return {
+            "status": "created",
+            "project_name": captured["intake"]["project_name"],
+            "project_slug": captured["intake"]["project_slug"],
+            "run_id": "run_hello_world_next",
+            "docs_dir": str(root / "docs" / "hello_world" / "run_hello_world_next"),
+            "message": "created",
+        }
+
+    monkeypatch.setattr(service, "_run_dev_shelf_tool", fake_run_tool)
     monkeypatch.setattr(routes, "dev_shelf_service", service)
 
-    with pytest.raises(HTTPException) as exc:
-        routes.create_dev_shelf_run(
-            DevShelfProjectCreateRequest(
-                project_name="Hello World",
-                requirement="重新创建同名 run",
-            )
+    result = routes.create_dev_shelf_run(
+        DevShelfProjectCreateRequest(
+            project_name="Hello World",
+            requirement="重新创建同名 run",
         )
+    )
 
-    assert exc.value.status_code == 409
-    assert "项目名已存在" in str(exc.value.detail)
+    assert result.status == "created"
+    assert result.run_id == "run_hello_world_next"
+    assert captured["script_name"] == "dev_shelf_start_project.py"
+    assert captured["intake"]["project_slug"] == "hello_world"
 
 
 def test_dev_shelf_directory_routes_list_and_create_project_folders(monkeypatch, tmp_path) -> None:
@@ -905,6 +974,68 @@ def test_dev_shelf_gateway_transcript_ignores_tool_result_message_snapshots(tmp_
     assert all("pageContent" not in message.text for message in messages)
 
 
+def test_dev_shelf_gateway_transcript_records_assistant_error_message(tmp_path) -> None:
+    runtime_events_path = tmp_path / "runtime-events.jsonl"
+    runtime_events_path.write_text(
+        json.dumps(
+            {
+                "stream": "runtime",
+                "kind": "text",
+                "sequence": 1,
+                "raw": {
+                    "role": "assistant",
+                    "content": [],
+                    "stopReason": "error",
+                    "errorMessage": "Connection error.",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    service = DevShelfReadService(tmp_path / "dev-shelf")
+
+    messages, event_count = service._read_gateway_transcript(runtime_events_path)
+
+    assert event_count == 1
+    assert len(messages) == 1
+    assert messages[0].role == "error"
+    assert messages[0].kind == "error"
+    assert messages[0].text == "Connection error."
+
+
+def test_dev_shelf_gateway_transcript_records_running_service(tmp_path) -> None:
+    runtime_events_path = tmp_path / "runtime-events.jsonl"
+    runtime_events_path.write_text(
+        json.dumps(
+            {
+                "stream": "runtime",
+                "kind": "text",
+                "sequence": 1,
+                "raw": {
+                    "type": "service_started",
+                    "service_name": "前端服务",
+                    "url": "http://127.0.0.1:4173/",
+                    "command": "npm run dev",
+                    "cwd": "/tmp/demo",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    service = DevShelfReadService(tmp_path / "dev-shelf")
+
+    messages, event_count = service._read_gateway_transcript(runtime_events_path)
+
+    assert event_count == 1
+    assert len(messages) == 1
+    assert messages[0].role == "assistant"
+    assert messages[0].kind == "running_service"
+    assert "http://127.0.0.1:4173/" in messages[0].text
+    assert "npm run dev" in messages[0].text
+
+
 def test_dev_shelf_gateway_failed_session_hides_stale_candidate_previews(monkeypatch, tmp_path) -> None:
     root = tmp_path / "dev-shelf"
     run_dir = make_pending_gate_run(root)
@@ -919,6 +1050,33 @@ def test_dev_shelf_gateway_failed_session_hides_stale_candidate_previews(monkeyp
     assert candidates.payload["candidates"] == []
     assert candidates.payload["preview_artifacts"] == []
     assert candidates.payload["skipped_reason"] == "gateway_status_failed"
+
+
+def test_dev_shelf_gateway_stale_packet_hides_candidate_previews(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    run_dir = make_pending_gate_run(root)
+    write_json(
+        run_dir / "packets" / "0002-execution-packet.json",
+        {
+            "packet_version": "1.0",
+            "decision_type": "run_manifest",
+            "ready": True,
+            "run_id": "run_demo_20260415000000",
+            "target": "template.existing-project-analysis",
+            "pending_outputs": [{"artifact_id": "existing_project_analysis"}],
+        },
+    )
+    make_gateway_session(run_dir, packet_path=run_dir / "packets" / "0001-execution-packet.json")
+    monkeypatch.setattr(routes, "dev_shelf_service", DevShelfReadService(root))
+
+    candidates = routes.get_dev_shelf_gateway_candidates("run_demo_20260415000000")
+
+    assert candidates.payload is not None
+    assert candidates.payload["summary"]["candidate_count"] == 0
+    assert candidates.payload["summary"]["review_required_candidate_count"] == 0
+    assert candidates.payload["candidates"] == []
+    assert candidates.payload["preview_artifacts"] == []
+    assert candidates.payload["skipped_reason"] == "gateway_packet_stale"
 
 
 def test_dev_shelf_gateway_stream_sends_sse_events(monkeypatch, tmp_path) -> None:
@@ -976,6 +1134,106 @@ def test_dev_shelf_gateway_stream_resumes_from_last_event_id(monkeypatch, tmp_pa
     assert "event: file_write" in body
 
 
+def test_dev_shelf_gateway_stream_follows_appended_runtime_events(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    run_dir = make_pending_gate_run(root)
+    make_gateway_session(run_dir, status="starting")
+    service = DevShelfReadService(root)
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+    runtime_events_path = run_dir / "artifacts" / "pi-agent-gateway" / "session-demo" / "runtime-events.jsonl"
+
+    stream = service.iter_gateway_stream_events(
+        "run_demo_20260415000000",
+        session_id="session-demo",
+        cursor=1,
+        limit=10,
+        poll_interval_seconds=0.02,
+    )
+    try:
+        assert next(stream) == "retry: 3000\n\n"
+        assert "event: assistant_delta" in next(stream)
+        assert "event: tool_result" in next(stream)
+        assert "event: file_write" in next(stream)
+
+        with runtime_events_path.open("a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "run_id": run_dir.name,
+                        "gateway_session_id": "session-demo",
+                        "pi_session_id": "pi-demo",
+                        "stream": "runtime",
+                        "kind": "text",
+                        "sequence": 4,
+                        "raw": {"type": "text_delta", "delta": " live"},
+                    }
+                )
+                + "\n"
+            )
+
+        appended = next(stream)
+        assert "event: assistant_delta" in appended
+        assert '"delta":" live"' in appended
+    finally:
+        stream.close()
+
+
+def test_dev_shelf_gateway_stream_hub_broadcasts_to_multiple_subscribers(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    run_dir = make_pending_gate_run(root)
+    make_gateway_session(run_dir, status="starting")
+    service = DevShelfReadService(root)
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+    runtime_events_path = run_dir / "artifacts" / "pi-agent-gateway" / "session-demo" / "runtime-events.jsonl"
+
+    first = service.iter_gateway_stream_events(
+        "run_demo_20260415000000",
+        session_id="session-demo",
+        cursor=3,
+        limit=10,
+        poll_interval_seconds=0.02,
+    )
+    second = service.iter_gateway_stream_events(
+        "run_demo_20260415000000",
+        session_id="session-demo",
+        cursor=3,
+        limit=10,
+        poll_interval_seconds=0.02,
+    )
+    try:
+        assert next(first) == "retry: 3000\n\n"
+        assert next(second) == "retry: 3000\n\n"
+        assert len(service._gateway_stream_sessions) == 1
+
+        with runtime_events_path.open("a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "run_id": run_dir.name,
+                        "gateway_session_id": "session-demo",
+                        "pi_session_id": "pi-demo",
+                        "stream": "runtime",
+                        "kind": "text",
+                        "sequence": 4,
+                        "raw": {"type": "text_delta", "delta": " broadcast"},
+                    }
+                )
+                + "\n"
+            )
+
+        first_event = next(first)
+        second_event = next(second)
+        assert "event: assistant_delta" in first_event
+        assert "event: assistant_delta" in second_event
+        assert '"delta":" broadcast"' in first_event
+        assert '"delta":" broadcast"' in second_event
+    finally:
+        first.close()
+        second.close()
+
+
 def test_dev_shelf_gateway_candidate_confirm_applies_and_approves_artifact(monkeypatch, tmp_path) -> None:
     root = tmp_path / "dev-shelf"
     run_dir = make_pending_gate_run(root)
@@ -998,6 +1256,15 @@ def test_dev_shelf_gateway_candidate_confirm_applies_and_approves_artifact(monke
                     "title": "需求确认清单",
                     "status": "draft",
                     "path": str(root / "docs" / "demo" / "requirement-confirmation.md"),
+                    "current_revision_id": "rev_0001",
+                    "revisions": [
+                        {
+                            "revision_id": "rev_0001",
+                            "status": "draft",
+                            "path": str(root / "docs" / "demo" / "requirement-confirmation.md"),
+                            "created_at": "2026-04-29T00:00:00Z",
+                        }
+                    ],
                 }
             )
             write_json(run_state_path, state)
@@ -1054,6 +1321,124 @@ def test_dev_shelf_gateway_candidate_confirm_applies_and_approves_artifact(monke
     assert detail.latest_packet.target == "template.spec"
 
 
+def test_dev_shelf_gateway_candidate_confirm_applies_auto_companion_artifacts(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    run_dir, implementation_path = make_execution_registerable_run(root)
+    quick_deploy_path = root / "docs" / "demo" / "quick-deploy-guide.md"
+    candidates_path = run_dir / "artifacts" / "pi-agent-gateway" / "session-demo" / "gateway-event-candidates.json"
+    write_json(
+        candidates_path,
+        {
+            "schema_version": "1.0",
+            "run_id": run_dir.name,
+            "gateway_session_id": "session-demo",
+            "summary": {"candidate_count": 2, "skipped_count": 0, "review_required_candidate_count": 0},
+            "candidates": [
+                {
+                    "candidate_id": "candidate-0001-implementation_result",
+                    "artifact_id": "implementation_result",
+                    "review_required": False,
+                    "event": {
+                        "schema_version": "1.0",
+                        "event_type": "artifact_status_changed",
+                        "actor": "ai",
+                        "artifact_id": "implementation_result",
+                        "artifact_status": "done",
+                        "title": "实现结果",
+                        "produced_by": "stage.execution",
+                        "path": str(implementation_path),
+                    },
+                    "source_output": {
+                        "artifact_id": "implementation_result",
+                        "produced": True,
+                        "review_required": False,
+                    },
+                },
+                {
+                    "candidate_id": "candidate-0002-quick_deploy_guide",
+                    "artifact_id": "quick_deploy_guide",
+                    "review_required": False,
+                    "event": {
+                        "schema_version": "1.0",
+                        "event_type": "artifact_status_changed",
+                        "actor": "ai",
+                        "artifact_id": "quick_deploy_guide",
+                        "artifact_status": "done",
+                        "title": "快速部署文档",
+                        "produced_by": "stage.execution",
+                        "path": str(quick_deploy_path),
+                    },
+                    "source_output": {
+                        "artifact_id": "quick_deploy_guide",
+                        "produced": True,
+                        "review_required": False,
+                    },
+                },
+            ],
+            "skipped": [],
+        },
+    )
+    service = DevShelfReadService(root, tools_root=root)
+    calls = []
+
+    def fake_run_tool(script_name, args):
+        calls.append((script_name, args))
+        run_state_path = run_dir / "run-state.json"
+        state = json.loads(run_state_path.read_text(encoding="utf-8"))
+        if script_name == "dev_shelf_workflow_action.py":
+            candidate_id = args[args.index("--candidate-id") + 1]
+            candidate_payload = json.loads(candidates_path.read_text(encoding="utf-8"))
+            candidate = next(item for item in candidate_payload["candidates"] if item["candidate_id"] == candidate_id)
+            event = candidate["event"]
+            state.setdefault("artifacts", []).append(
+                {
+                    "artifact_id": event["artifact_id"],
+                    "title": event["title"],
+                    "status": event["artifact_status"],
+                    "path": event["path"],
+                    "produced_by": event["produced_by"],
+                }
+            )
+            write_json(run_state_path, state)
+            return {"status": "applied"}
+        if script_name == "dev_shelf_runner.py":
+            write_json(
+                run_dir / "packets" / "0002-execution-packet.json",
+                {
+                    "packet_version": "1.0",
+                    "decision_type": "enter_stage",
+                    "ready": True,
+                    "target": "stage.review",
+                },
+            )
+            return {}
+        raise AssertionError(script_name)
+
+    monkeypatch.setattr(service, "_run_dev_shelf_tool", fake_run_tool)
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+
+    detail = routes.confirm_dev_shelf_gateway_candidate(
+        "run_demo_20260425000000",
+        "candidate-0002-quick_deploy_guide",
+        DevShelfGatewayCandidateConfirmRequest(session_id="session-demo"),
+    )
+
+    assert [call[0] for call in calls] == [
+        "dev_shelf_workflow_action.py",
+        "dev_shelf_workflow_action.py",
+        "dev_shelf_runner.py",
+    ]
+    assert [call[1][call[1].index("--candidate-id") + 1] for call in calls[:2]] == [
+        "candidate-0001-implementation_result",
+        "candidate-0002-quick_deploy_guide",
+    ]
+    artifacts = {item.artifact_id: item for item in detail.artifacts}
+    assert artifacts["implementation_result"].status == "done"
+    assert artifacts["quick_deploy_guide"].status == "done"
+    assert detail.latest_packet is not None
+    assert detail.latest_packet.target == "stage.review"
+
+
 def test_dev_shelf_gateway_candidate_revise_rejects_and_writes_feedback(monkeypatch, tmp_path) -> None:
     root = tmp_path / "dev-shelf"
     run_dir = make_pending_gate_run(root)
@@ -1079,6 +1464,7 @@ def test_dev_shelf_gateway_candidate_revise_rejects_and_writes_feedback(monkeypa
             return {"status": "applied"}
         if script_name == "dev_shelf_emit_event.py":
             assert args[0] == "artifact"
+            assert args[args.index("--artifact-revision-id") + 1] == "rev_0001"
             artifact_id = args[args.index("--artifact-id") + 1]
             artifact_status = args[args.index("--artifact-status") + 1]
             note = args[args.index("--note") + 1]
@@ -1122,7 +1508,11 @@ def test_dev_shelf_gateway_candidate_revise_rejects_and_writes_feedback(monkeypa
     assert artifact.status == "rejected"
     feedback_files = list((run_dir / "artifacts" / "workbench-feedback").glob("*.md"))
     assert len(feedback_files) == 1
-    assert "需要补充中止和重新生成入口" in feedback_files[0].read_text(encoding="utf-8")
+    feedback_text = feedback_files[0].read_text(encoding="utf-8")
+    assert "run_id: run_demo_20260415000000" in feedback_text
+    assert "artifact_id: requirement_confirmation_checklist" in feedback_text
+    assert "artifact_revision_id: rev_0001" in feedback_text
+    assert "需要补充中止和重新生成入口" in feedback_text
     assert detail.latest_packet is not None
     assert detail.latest_packet.decision_type == "run_manifest"
 
@@ -1139,11 +1529,12 @@ def test_dev_shelf_gateway_register_result_writes_artifact_and_advances(monkeypa
         state = json.loads(run_state_path.read_text(encoding="utf-8"))
         if script_name == "dev_shelf_emit_event.py":
             assert args[0] == "artifact"
-            assert args[args.index("--artifact-id") + 1] == "implementation_result"
+            artifact_id = args[args.index("--artifact-id") + 1]
+            assert artifact_id in {"implementation_result", "quick_deploy_guide"}
             assert args[args.index("--artifact-status") + 1] == "done"
             state.setdefault("artifacts", []).append(
                 {
-                    "artifact_id": "implementation_result",
+                    "artifact_id": artifact_id,
                     "title": args[args.index("--title") + 1],
                     "status": "done",
                     "path": args[args.index("--path") + 1],
@@ -1173,13 +1564,31 @@ def test_dev_shelf_gateway_register_result_writes_artifact_and_advances(monkeypa
         DevShelfGatewayRegisterResultRequest(session_id="session-demo"),
     )
 
-    assert [call[0] for call in calls] == ["dev_shelf_emit_event.py", "dev_shelf_runner.py"]
+    assert [call[0] for call in calls] == [
+        "dev_shelf_emit_event.py",
+        "dev_shelf_emit_event.py",
+        "dev_shelf_runner.py",
+    ]
+    assert [call[1][call[1].index("--artifact-id") + 1] for call in calls if call[0] == "dev_shelf_emit_event.py"] == [
+        "implementation_result",
+        "quick_deploy_guide",
+    ]
     content = implementation_path.read_text(encoding="utf-8")
     assert "Successfully wrote 10 bytes" in content
     assert "Implemented the static page." in content
+    assert "可验证证据" in content
+    assert "证据缺失" in content
+    quick_deploy_path = root / "docs" / "demo" / "quick-deploy-guide.md"
+    quick_deploy_content = quick_deploy_path.read_text(encoding="utf-8")
+    assert "快速部署文档" in quick_deploy_content
+    assert "http://127.0.0.1:4173/" in quick_deploy_content
+    assert "npm run dev" in quick_deploy_content
     artifact = next(item for item in detail.artifacts if item.artifact_id == "implementation_result")
     assert artifact.status == "done"
     assert artifact.path == str(implementation_path)
+    quick_deploy = next(item for item in detail.artifacts if item.artifact_id == "quick_deploy_guide")
+    assert quick_deploy.status == "done"
+    assert quick_deploy.path == str(quick_deploy_path)
     assert detail.latest_packet is not None
     assert detail.latest_packet.target == "stage.review"
 
@@ -1487,6 +1896,31 @@ def test_dev_shelf_gateway_start_rejects_completed_current_packet(monkeypatch, t
     assert "已完成执行" in exc.value.detail
 
 
+def test_dev_shelf_gateway_start_allows_retry_when_completed_without_outputs(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    run_dir = make_gateway_runnable_run(root)
+    make_gateway_session(run_dir, produced_count=0)
+    script_path = root / "scripts" / "dev_shelf_gateway.py"
+    script_path.parent.mkdir(parents=True)
+    script_path.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    service = DevShelfReadService(root, tools_root=root)
+    fake_process = FakeGatewayProcess()
+    captured = {}
+
+    def fake_spawn(command, log_path):
+        captured["command"] = command
+        captured["log_path"] = log_path
+        return fake_process
+
+    monkeypatch.setattr(service, "_spawn_gateway_process", fake_spawn)
+    monkeypatch.setattr(routes, "dev_shelf_service", service)
+
+    started = routes.start_dev_shelf_gateway("run_demo_20260415000000", DevShelfGatewayStartRequest())
+
+    assert started.status == "started"
+    assert captured["command"]
+
+
 def test_dev_shelf_gateway_start_rejects_running_process(monkeypatch, tmp_path) -> None:
     root = tmp_path / "dev-shelf"
     make_gateway_runnable_run(root)
@@ -1527,6 +1961,8 @@ def test_dev_shelf_gateway_latest_reports_failed_launch_log(monkeypatch, tmp_pat
     assert started.status == "started"
     assert status.status == "failed"
     assert status.gateway_session_id is None
+    assert status.log_path is not None
+    assert status.log_path.endswith(".log")
     assert "gateway failed before session" in (status.error or "")
 
 
@@ -1643,6 +2079,56 @@ def test_dev_shelf_run_detail_truncates_large_artifact_preview(monkeypatch, tmp_
     assert detail.artifacts[0].content == "a" * ARTIFACT_PREVIEW_LIMIT
     assert detail.artifacts[0].content_truncated is True
     assert detail.artifacts[0].content_error is None
+    assert detail.artifacts[0].previewable is True
+
+
+def test_dev_shelf_run_detail_does_not_expose_auto_project_preview(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "dev-shelf"
+    project_path = tmp_path / "static-web"
+    project_path.mkdir()
+    write_json(
+        project_path / "package.json",
+        {
+            "scripts": {
+                "preview": "vite preview --host 0.0.0.0 --port 4321",
+            },
+            "devDependencies": {"vite": "^6.0.0"},
+        },
+    )
+    run_dir = root / "runs" / "run_demo_20260419000000"
+    write_json(
+        run_dir / "run-state.json",
+        {
+            "run_id": "run_demo_20260419000000",
+            "project_name": "Static Web",
+            "request_summary": "Do not show preview entry.",
+            "task_type": "feature",
+            "task_type_status": "confirmed",
+            "current_stage": "completed",
+            "status": "completed",
+            "workspace": {
+                "kind": "existing_project",
+                "project_path": str(project_path),
+                "allowed_read_paths": [str(project_path)],
+                "allowed_write_paths": [str(project_path)],
+                "confirmation_status": "confirmed",
+            },
+            "artifacts": [
+                {
+                    "artifact_id": "implementation_result",
+                    "title": "实现结果",
+                    "status": "done",
+                    "path": "runs/run_demo_20260419000000/artifacts/implementation-result.md",
+                }
+            ],
+            "history": [],
+        },
+    )
+    monkeypatch.setattr(routes, "dev_shelf_service", DevShelfReadService(root))
+
+    detail = routes.get_dev_shelf_run("run_demo_20260419000000")
+
+    assert "project_preview" not in detail.model_dump()
 
 
 def test_dev_shelf_gate_decision_approves_artifact_and_writes_packet(monkeypatch, tmp_path) -> None:
