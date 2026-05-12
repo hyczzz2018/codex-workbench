@@ -1,11 +1,19 @@
 from app.api.routes import confirm_stage, create_session, get_artifact, get_session, list_messages
-from app.main import index
+from app.main import health, index
 from app.schemas.session import ConfirmRequest, MessageList, SessionCreate, SessionRead
 
 
 def test_index_serves_html_file() -> None:
     response = index()
     assert str(response.path).endswith("app/static/index.html")
+
+
+def test_health_reports_service_and_log_path() -> None:
+    payload = health()
+
+    assert payload["status"] == "ok"
+    assert payload["service"] == "codex-workbench"
+    assert payload["log_path"] == "/tmp/codex-workbench.log"
 
 
 def test_index_only_exposes_dev_shelf_workbench_ui() -> None:

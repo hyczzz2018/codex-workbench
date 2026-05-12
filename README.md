@@ -74,17 +74,33 @@ python3 -m venv .venv
 
 默认读取 `/home/hyc/projects/dev-shelf` 作为 dev-shelf 根目录。
 
+推荐使用固定启动脚本。脚本会先停止同一 host/port/app-dir 上的旧 `uvicorn` 进程，再启动新服务，并把日志固定写到 `/tmp/codex-workbench.log`。
+
+```bash
+cd /home/hyc/projects/codex-workbench
+bash scripts/start-workbench.sh
+```
+
+默认地址：
+
+```text
+http://127.0.0.1:8010/
+```
+
+等价的 `uvicorn` 命令：
+
 ```bash
 .venv/bin/uvicorn app.main:app \
   --host 127.0.0.1 \
-  --port 8000 \
-  --app-dir /home/hyc/projects/codex-workbench
+  --port 8010 \
+  --app-dir /home/hyc/projects/codex-workbench \
+  >> /tmp/codex-workbench.log 2>&1
 ```
 
-打开：
+健康检查：
 
-```text
-http://127.0.0.1:8000/
+```bash
+curl -s http://127.0.0.1:8010/health
 ```
 
 如果 dev-shelf 不在默认路径，可以设置：
@@ -92,7 +108,7 @@ http://127.0.0.1:8000/
 ```bash
 DEV_SHELF_ROOT=/path/to/dev-shelf \
 DEV_SHELF_TOOLS_ROOT=/path/to/dev-shelf \
-.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir /home/hyc/projects/codex-workbench
+bash scripts/start-workbench.sh
 ```
 
 ## API

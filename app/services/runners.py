@@ -8,7 +8,8 @@ from pathlib import Path
 
 class CodexRunner:
     def __init__(self, workdir: str | None = None) -> None:
-        self._workdir = Path(workdir or os.getenv("CODER_WORKDIR", "/home/hyc/projects/codex-workbench")).resolve()
+        default_workdir = Path(__file__).resolve().parents[2]
+        self._workdir = Path(workdir or os.getenv("CODER_WORKDIR", str(default_workdir))).resolve()
 
     def run(self, prompt: str) -> str:
         with tempfile.NamedTemporaryFile(mode="r", encoding="utf-8", delete=False) as output_file:

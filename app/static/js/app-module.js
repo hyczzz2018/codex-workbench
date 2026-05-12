@@ -98,7 +98,7 @@ const AUTO_REFRESH_INTERVAL_MS = 5000;
 const SCROLL_BOTTOM_TOLERANCE_PX = 96;
 const COLLAB_TYPEWRITER_INTERVAL_MS = 24;
 const COLLAB_TYPEWRITER_MIN_CHARS_PER_TICK = 1;
-const COLLAB_TYPEWRITER_MAX_CHARS_PER_TICK = 1;
+const COLLAB_TYPEWRITER_MAX_CHARS_PER_TICK = 4;
 const GATEWAY_ARTIFACT_REFRESH_DELAY_MS = 400;
 const GATEWAY_ARTIFACT_REFRESH_RETRY_MS = 1500;
 const GATEWAY_ARTIFACT_REFRESH_MAX_ATTEMPTS = 4;
@@ -3975,31 +3975,10 @@ function labelCollabToolName(value) {
 
 function isGatewayActivelyStreaming() {
   const gateway = state.devShelf.gateway;
-  const status = gateway.status?.status;
   return Boolean(
     isWaitingForStartedGatewaySession()
-    || status === "starting"
-    || status === "running"
-    || gatewayStreamOpenForSelectedRun()
+    || gateway.status?.status === "starting"
   );
-}
-
-function gatewayStreamOpenForSelectedRun() {
-  const gateway = state.devShelf.gateway;
-  if (!gateway.streamConnected || gateway.streamError) {
-    return false;
-  }
-  const status = gateway.status?.status;
-  if (["completed", "failed", "aborted"].includes(status)) {
-    return false;
-  }
-  if (gatewayStreamRunId && gatewayStreamRunId !== state.devShelf.selectedRunId) {
-    return false;
-  }
-  if (gatewayStreamSessionId && gateway.sessionId && gatewayStreamSessionId !== gateway.sessionId) {
-    return false;
-  }
-  return true;
 }
 
 function trimMultilineText(value, limit) {

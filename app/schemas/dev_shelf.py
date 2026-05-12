@@ -18,6 +18,11 @@ class DevShelfArtifact(APIModel):
     content_format: str | None = None
     content_truncated: bool = False
     content_error: str | None = None
+    previewable: bool = False
+    current_revision_id: str | None = None
+    revision_count: int = 0
+    feedback_count: int = 0
+    latest_feedback_path: str | None = None
 
 
 class DevShelfExecutionPacket(APIModel):
@@ -136,6 +141,7 @@ class DevShelfRunDetail(DevShelfRunSummary):
     pending_human_gates: list[DevShelfHumanGate] = Field(default_factory=list)
     router: DevShelfRouterResult | None = None
     latest_packet: DevShelfExecutionPacket | None = None
+    action_policy: dict[str, Any] | None = None
 
 
 class DevShelfHumanGateDecisionRequest(APIModel):
@@ -183,6 +189,7 @@ class DevShelfGatewaySessionStatus(APIModel):
     packet_target: str | None = None
     session_dir: str | None = None
     metadata_path: str | None = None
+    log_path: str | None = None
     runtime_events_path: str | None = None
     runtime_event_schema_version: str | None = None
     event_count: int = 0

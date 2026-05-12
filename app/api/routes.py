@@ -182,15 +182,21 @@ def stream_dev_shelf_gateway_events(
     session_id: str | None = None,
     cursor: int = 0,
     limit: int = 100,
+    poll_interval_seconds: float | None = None,
     last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
 ) -> StreamingResponse:
     try:
+        stream_kwargs = {
+            "session_id": session_id,
+            "cursor": cursor,
+            "limit": limit,
+            "last_event_id": last_event_id,
+        }
+        if poll_interval_seconds is not None:
+            stream_kwargs["poll_interval_seconds"] = poll_interval_seconds
         stream = dev_shelf_service.iter_gateway_stream_events(
             run_id,
-            session_id=session_id,
-            cursor=cursor,
-            limit=limit,
-            last_event_id=last_event_id,
+            **stream_kwargs,
         )
     except DevShelfRunNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
